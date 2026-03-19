@@ -24,7 +24,7 @@ class User extends Authenticatable
         'username',
         'email',
         'mobile',
-
+        'commision',
         'password',
         'balance',
     ];

@@ -115,9 +115,33 @@
                     <small class="text-danger d-none" data-error="general_status_id"></small>
                 </div>
 
+                {{-- Commission Field --}}
+                <div class="col-md-4">
+                    <label class="fw-bold">Commission (%)</label>
+                    <div class="input-group">
+                        <input type="number" name="commision" value="{{ old('commision') }}"
+                            class="form-control only-numbers-commission" min="0" max="100" step="0.01"
+                            inputmode="decimal" placeholder="e.g. 10">
+                        <span class="input-group-text">%</span>
+                    </div>
+                    <small class="text-danger">
+                        @error('commision')
+                            {{ $message }}
+                        @enderror
+                    </small>
+                    <small class="text-danger d-none" data-error="commision"></small>
+                </div>
+
+                {{-- Password with Eye Toggle --}}
                 <div class="col-md-4">
                     <label class="fw-bold">Password</label>
-                    <input type="password" name="password" class="form-control" required>
+                    <div class="input-group">
+                        <input type="password" name="password" id="password" class="form-control" required>
+                        <button type="button" class="btn btn-outline-secondary px-3"
+                            onclick="togglePassword('password', 'eyeIcon1')" tabindex="-1">
+                            <i class="fa fa-eye" id="eyeIcon1"></i>
+                        </button>
+                    </div>
                     <small class="text-danger">
                         @error('password')
                             {{ $message }}
@@ -126,11 +150,20 @@
                     <small class="text-danger d-none" data-error="password"></small>
                 </div>
 
+                {{-- Confirm Password with Eye Toggle --}}
                 <div class="col-md-4">
                     <label class="fw-bold">Confirm Password</label>
-                    <input type="password" name="password_confirmation" class="form-control" required>
+                    <div class="input-group">
+                        <input type="password" name="password_confirmation" id="password_confirmation"
+                            class="form-control" required>
+                        <button type="button" class="btn btn-outline-secondary px-3"
+                            onclick="togglePassword('password_confirmation', 'eyeIcon2')" tabindex="-1">
+                            <i class="fa fa-eye" id="eyeIcon2"></i>
+                        </button>
+                    </div>
                     <small class="text-danger d-none" data-error="password_confirmation"></small>
                 </div>
+
             </div>
 
             <button class="btn-lotto-green btn-boxed mt-3" type="submit">Create User</button>
@@ -138,88 +171,98 @@
 
     </div>
 
-
-    {{-- ================= CLIENT-SIDE VALIDATION SCRIPT ================= --}}
     <script>
-        /* ================= Auto Capitalize First Letter ================= */
+        /* ===== Toggle Password Visibility ===== */
+        function togglePassword(fieldId, iconId) {
+            const input = document.getElementById(fieldId);
+            const icon = document.getElementById(iconId);
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+
+        /* ===== Auto Capitalize ===== */
         document.querySelectorAll(".capitalize").forEach(input => {
             input.addEventListener("input", function() {
                 this.value = this.value.charAt(0).toUpperCase() + this.value.slice(1);
             });
         });
 
-        /* ================= Mobile: Allow Only 10 Digits ================= */
+        /* ===== Mobile: 10 digits only ===== */
         document.querySelectorAll(".only-numbers").forEach(input => {
-
-            // Block non-numbers AND block typing beyond 10 digits
             input.addEventListener("keypress", function(e) {
-                if (!/[0-9]/.test(e.key) || this.value.length >= 10) {
-                    e.preventDefault();
-                }
+                if (!/[0-9]/.test(e.key) || this.value.length >= 10) e.preventDefault();
             });
-
-            // Block paste if NOT exactly 10 digits
             input.addEventListener("paste", function(e) {
                 let paste = (e.clipboardData || window.clipboardData).getData('text');
-                if (!/^[0-9]{10}$/.test(paste)) {
-                    e.preventDefault();
-                }
+                if (!/^[0-9]{10}$/.test(paste)) e.preventDefault();
             });
         });
 
-        /* ================= Form Submit Validation ================= */
+        /* ===== Commission: 0–100 only ===== */
+        document.querySelectorAll(".only-numbers-commission").forEach(input => {
+            input.addEventListener("input", function() {
+                let val = parseFloat(this.value);
+                if (val > 100) this.value = 100;
+                if (val < 0) this.value = 0;
+            });
+        });
+
+        /* ===== Form Submit Validation ===== */
         document.getElementById("userForm").addEventListener("submit", function(e) {
             let valid = true;
             const form = this;
 
-            // Helper: show & hide errors
             const showError = (field, msg) => {
                 valid = false;
                 const input = form.querySelector(`[name="${field}"]`);
                 const error = form.querySelector(`[data-error="${field}"]`);
-                input.classList.add("is-invalid");
-                error.classList.remove("d-none");
-                error.innerHTML = msg;
+                if (input) input.classList.add("is-invalid");
+                if (error) {
+                    error.classList.remove("d-none");
+                    error.innerHTML = msg;
+                }
             };
 
             const clearError = (field) => {
                 const input = form.querySelector(`[name="${field}"]`);
                 const error = form.querySelector(`[data-error="${field}"]`);
-                input.classList.remove("is-invalid");
-                error.classList.add("d-none");
+                if (input) input.classList.remove("is-invalid");
+                if (error) error.classList.add("d-none");
             };
 
-            // Reset all errors before validating
-            ["first_name", "email", "mobile", "username", "password", "password_confirmation"].forEach(clearError);
+            ["first_name", "email", "mobile", "username", "password", "password_confirmation", "commision"].forEach(
+                clearError);
 
-            /* First Name Validation */
-            let fn = form.first_name.value.trim();
-            if (!fn.match(/^[A-Za-z]+$/)) {
+            /* First Name */
+            if (!form.first_name.value.trim().match(/^[A-Za-z]+$/))
                 showError("first_name", "Enter valid first name");
-            }
 
             /* Email */
             let email = form.email.value.trim();
-            if (email && !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+            if (email && !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/))
                 showError("email", "Invalid email format");
-            }
 
-            /* Mobile = 10 digits only */
-            let mobile = form.mobile.value.trim();
-            if (!/^[0-9]{10}$/.test(mobile)) {
+            /* Mobile */
+            if (!/^[0-9]{10}$/.test(form.mobile.value.trim()))
                 showError("mobile", "Mobile must be exactly 10 digits");
-            }
 
-            /* Password Checks */
+            /* Commission */
+            let comm = form.commision.value.trim();
+            if (comm !== '' && (isNaN(comm) || parseFloat(comm) < 0 || parseFloat(comm) > 100))
+                showError("commision", "Commission must be between 0 and 100");
+
+            /* Password */
             let pass = form.password.value;
             let confirm = form.password_confirmation.value;
-
-            if (pass.length < 6) {
-                showError("password", "Password must be minimum 6 characters");
-            }
-            if (pass !== confirm) {
-                showError("password_confirmation", "Passwords do not match");
-            }
+            if (pass.length < 6) showError("password", "Password must be minimum 6 characters");
+            if (pass !== confirm) showError("password_confirmation", "Passwords do not match");
 
             if (!valid) e.preventDefault();
         });

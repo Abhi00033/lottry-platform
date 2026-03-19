@@ -7,6 +7,7 @@ use App\Models\SeriesMaster;
 use App\Models\Bet;
 use App\Models\Result;
 use App\Models\UserBalanceTransaction;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
@@ -15,41 +16,54 @@ class GenerateDrawResults extends Command
     protected $signature = 'draw:generate-results';
     protected $description = 'Automate 15-min draw results for every 100-number range';
 
+    // Default commission if user has null or 0 commission set
+    const DEFAULT_COMMISSION = 5;
+
     public function handle()
     {
-        $now = Carbon::now();
+        $now       = Carbon::now();
         $startTime = config('app.draw_start');
-        $endTime = config('app.draw_end');
+        $endTime   = config('app.draw_end');
 
         if ($now->format('H:i') < $startTime || $now->format('H:i') > $endTime) {
             $this->info("Outside draw hours ($startTime - $endTime). Skipping.");
             return;
         }
 
-        $minutes = $now->minute;
+        $minutes      = $now->minute;
         $targetMinute = floor($minutes / 15) * 15;
-        $drawTime = $now->copy()->minute($targetMinute)->second(0);
+        $drawTime     = $now->copy()->minute($targetMinute)->second(0);
 
         $this->info("Generating results for Draw Time: " . $drawTime->format('Y-m-d H:i:s'));
 
         $seriesList = SeriesMaster::all();
 
-        foreach ($seriesList as $mainSeries) {
-            // Loop 10 times for each 100-number row (1000, 1100, 1200...)
-            for ($i = 0; $i < 10; $i++) {
-                $subSeriesStart = (int)$mainSeries->start + ($i * 100);
+        if ($seriesList->isEmpty()) {
+            $this->warn("No series found. Exiting.");
+            return;
+        }
 
-                // FIXED: Changed '.' to '->' before exists()
+        foreach ($seriesList as $mainSeries) {
+            for ($i = 0; $i < 10; $i++) {
+                $subSeriesStart = (int) $mainSeries->start + ($i * 100);
+
                 $exists = Result::where('draw_time', $drawTime)
                     ->where('series', $subSeriesStart)
                     ->exists();
 
                 if ($exists) {
-                    $this->line("Result already exists for range starting $subSeriesStart. Skipping.");
+                    $this->line("Result already exists for $subSeriesStart. Skipping.");
                     continue;
                 }
 
-                $this->processSubSeriesResult($mainSeries, $subSeriesStart, $drawTime);
+                try {
+                    $this->processSubSeriesResult($mainSeries, $subSeriesStart, $drawTime);
+                } catch (\Throwable $e) {
+                    // Log error but NEVER crash the whole command
+                    // Continue to next sub-series
+                    $this->error("Error processing $subSeriesStart: " . $e->getMessage());
+                    \Illuminate\Support\Facades\Log::error("DrawResult Error [$subSeriesStart]: " . $e->getMessage());
+                }
             }
         }
 
@@ -61,62 +75,103 @@ class GenerateDrawResults extends Command
         DB::transaction(function () use ($mainSeries, $subSeriesStart, $drawTime) {
             $subSeriesEnd = $subSeriesStart + 99;
 
-            // 1. Get ALL bets for this range, even if they aren't "pending" to avoid double processing
+            // 1. Get all bets for this range
             $bets = Bet::where('series_id', $mainSeries->id)
                 ->where('draw_time', $drawTime)
                 ->where('number', '>=', $subSeriesStart)
                 ->where('number', '<=', $subSeriesEnd)
-                ->lockForUpdate() // LOCK rows so no other process can touch them during payment
+                ->with('user') // eager load user to avoid N+1 and null issues
+                ->lockForUpdate()
                 ->get();
 
-            // 2. Liability Logic (Your existing logic is correct)
+            // 2. Build number stats — total points bet on each number
             $numberStats = [];
             for ($n = 0; $n <= 99; $n++) {
-                $fullNumber = $subSeriesStart + $n;
-                $numberStats[$fullNumber] = $bets->where('number', (string)$fullNumber)->sum('points');
+                $fullNumber               = $subSeriesStart + $n;
+                $numberStats[$fullNumber] = $bets->where('number', (string) $fullNumber)->sum('points');
             }
 
-            asort($numberStats);
-            $minPoints = reset($numberStats);
-            $bestNumbers = array_keys(array_filter($numberStats, fn($pts) => $pts == $minPoints));
-            $winningNumber = $bestNumbers[array_rand($bestNumbers)];
+            // 3. WIN RATIO LOGIC — 60% user wins, 40% house wins
+            $rand = mt_rand(1, 100);
 
-            // 3. Create Result record
+            if ($rand <= 60) {
+                // 60% — weighted random from numbers that HAVE bets
+                $bettedNumbers = array_filter($numberStats, fn($pts) => $pts > 0);
+
+                if (!empty($bettedNumbers)) {
+                    $pool = [];
+                    foreach ($bettedNumbers as $number => $points) {
+                        $weight = max(1, (int) ceil($points));
+                        for ($w = 0; $w < $weight; $w++) {
+                            $pool[] = $number;
+                        }
+                    }
+                    $winningNumber = $pool[array_rand($pool)];
+                } else {
+                    // No bets placed — pick fully random
+                    $winningNumber = $subSeriesStart + mt_rand(0, 99);
+                }
+            } else {
+                // 40% — house wins, pick number with LEAST bets
+                asort($numberStats);
+                $minPoints   = reset($numberStats);
+                $bestNumbers = array_keys(array_filter($numberStats, fn($pts) => $pts == $minPoints));
+                $winningNumber = $bestNumbers[array_rand($bestNumbers)];
+            }
+
+            // 4. Create Result record
             Result::create([
-                'draw_time' => $drawTime,
-                'series' => $subSeriesStart,
+                'draw_time'     => $drawTime,
+                'series'        => $subSeriesStart,
                 'result_number' => $winningNumber,
             ]);
 
-            // 4. Update Statuses & Hierarchical Payment
-
+            // 5. Process bets — pay winners, mark losers
             $sortedBets = $bets->sortByDesc('points');
 
-            foreach ($sortedBets  as $bet) {
-                // SKIP if already processed (Safety First)
+            foreach ($sortedBets as $bet) {
+                // Safety: skip already processed bets
                 if ($bet->status !== 'pending') continue;
 
-                if ($bet->number == $winningNumber) {
-                    // WINNER LOGIC
-                    $winAmount = $bet->points * 90;
+                if ((int) $bet->number === (int) $winningNumber) {
 
-                    // Update Bet Status
+                    // ── User safety: fetch fresh if relationship is null ──
+                    $user = $bet->user ?? User::find($bet->user_id);
+
+                    if (!$user) {
+                        // User completely missing — mark as lost and move on, never crash
+                        $this->warn("User not found for bet ID {$bet->id}. Marking as lost.");
+                        $bet->update(['status' => 'lost']);
+                        continue;
+                    }
+
+                    // ── Commission: default 5% if null or 0 ──
+                    // null  → 5% default
+                    // 0     → 5% default
+                    // 10    → 10%
+                    // 30    → 30%
+                    $rawCommission  = $user->commision;
+                    $commissionRate = (!is_null($rawCommission) && $rawCommission > 0)
+                        ? (float) $rawCommission
+                        : self::DEFAULT_COMMISSION;
+
+                    $netMultiplier = 100 - $commissionRate;
+                    $winAmount     = $bet->points * $netMultiplier;
+
                     $bet->update(['status' => 'won']);
-
-                    // Pay the User (Retailer/Agent/Admin)
-                    $user = $bet->user;
                     $user->increment('balance', $winAmount);
 
-                    // Create Ledger Entry for Audit Trail
                     UserBalanceTransaction::create([
-                        'user_id' => $user->id,
-                        'type' => 'credit',
-                        'amount' => $winAmount,
-                        'balance_after' => $user->balance,
-                        'remarks' => "WIN: Draw " . $drawTime->format('h:i A') . " | No: $winningNumber",
+                        'user_id'       => $user->id,
+                        'type'          => 'credit',
+                        'amount'        => $winAmount,
+                        'balance_after' => $user->fresh()->balance,
+                        'remarks'       => "WIN: Draw " . $drawTime->format('h:i A') .
+                            " | No: $winningNumber" .
+                            " | {$bet->points} x {$netMultiplier} = Rs.{$winAmount}" .
+                            " | Commission: {$commissionRate}%",
                     ]);
                 } else {
-                    // LOSER LOGIC
                     $bet->update(['status' => 'lost']);
                 }
             }

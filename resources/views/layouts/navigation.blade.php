@@ -48,6 +48,14 @@
         display: inline-block;
     }
 
+    .btn-lotto.active {
+        background: var(--btn-green) !important;
+        color: #fff !important;
+        font-weight: 900;
+        border-color: #b87300 !important;
+        box-shadow: 0 0 6px rgba(255, 183, 3, 0.6);
+    }
+
     .btn-lotto-yellow {
         background: var(--btn-yellow);
         color: var(--text-dark);
@@ -135,13 +143,34 @@
         </div>
 
         <div class="d-flex gap-1">
-            <a href="{{ route('lotto.accounts') }}" class="btn-lotto btn-boxed">Accounts</a>
-            <button class="btn-lotto btn-boxed" data-bs-toggle="modal" data-bs-target="#passwordModal">Password</button>
-            <a href="{{ route('transactions.index') }}" class="btn-lotto btn-boxed">TrDetails</a>
-            <a href="#" class="btn-lotto btn-boxed">Reprint</a>
-            {{-- <a href="#" class="btn-lotto btn-boxed">Cancel</a> --}}
-            <a href="{{ route('results.index') }}" class="btn-lotto btn-boxed">Results</a>
-            <a href="#" class="btn-lotto btn-boxed">Claim</a>
+            <a href="{{ route('account.index') }}"
+                class="btn-lotto btn-boxed {{ request()->routeIs('account.index') ? 'active' : '' }}">
+                Accounts
+            </a>
+
+            <button class="btn-lotto btn-boxed {{ request()->routeIs('password.*') ? 'active' : '' }}"
+                data-bs-toggle="modal" data-bs-target="#passwordModal">
+                Password
+            </button>
+
+            <a href="{{ route('transactions.index') }}"
+                class="btn-lotto btn-boxed {{ request()->routeIs('transactions.index') ? 'active' : '' }}">
+                TrDetails
+            </a>
+
+            <a href="#" class="btn-lotto btn-boxed {{ request()->routeIs('reprint.*') ? 'active' : '' }}">
+                Reprint
+            </a>
+
+            <a href="{{ route('results.index') }}"
+                class="btn-lotto btn-boxed {{ request()->routeIs('results.index') ? 'active' : '' }}">
+                Results
+            </a>
+
+            <a href="{{ route('claim.index') }}"
+                class="btn-lotto btn-boxed {{ request()->routeIs('claim.index') ? 'active' : '' }}">
+                Claim
+            </a>
         </div>
     </div>
 </nav>

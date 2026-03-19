@@ -80,6 +80,23 @@
                     <small class="text-danger d-none" data-error="role_id"></small>
                 </div>
 
+                {{-- Commission Field --}}
+                <div class="col-md-4">
+                    <label class="fw-bold">Commission (%)</label>
+                    <div class="input-group">
+                        <input type="number" name="commision" value="{{ old('commision', $user->commision) }}"
+                            class="form-control" min="0" max="100" step="0.01" inputmode="decimal"
+                            placeholder="e.g. 10">
+                        <span class="input-group-text">%</span>
+                    </div>
+                    <small class="text-danger">
+                        @error('commision')
+                            {{ $message }}
+                        @enderror
+                    </small>
+                    <small class="text-danger d-none" data-error="commision"></small>
+                </div>
+
                 <div class="col-md-4">
                     <label class="fw-bold">Status</label>
                     <select name="general_status_id" class="form-select" required>
@@ -128,7 +145,8 @@
                         </div>
                         <div class="col-md-4 d-flex gap-2">
                             <button name="action" value="add" class="btn-lotto-green btn-boxed w-50">Add (+)</button>
-                            <button name="action" value="deduct" class="btn-lotto-red btn-boxed w-50">Deduct (-)</button>
+                            <button name="action" value="deduct" class="btn-lotto-red btn-boxed w-50">Deduct
+                                (-)</button>
                         </div>
                     </div>
                 </form>

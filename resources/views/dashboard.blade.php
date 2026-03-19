@@ -1067,9 +1067,14 @@
                         updateView();
                     } else {
                         // User unchecked a series → auto-switch to first remaining checked series
-                        const firstRemaining = document.querySelector('.series-select:checked');
-                        if (firstRemaining) {
-                            currentBaseSeries = parseInt(firstRemaining.value, 10);
+                        const allChecked = [...document.querySelectorAll('.series-select:checked')];
+                        const highestRemaining = allChecked.length > 0 ?
+                            allChecked.reduce((max, cb) => parseInt(cb.value) > parseInt(max
+                                .value) ? cb : max) :
+                            null;
+
+                        if (highestRemaining) {
+                            currentBaseSeries = parseInt(highestRemaining.value, 10);
                             activeSeriesRow = 0;
                             updateView();
                         } else {
@@ -1373,69 +1378,25 @@
                 });
             }
 
-            // document.querySelectorAll('.input-bet-field').forEach(input => {
-            //     input.addEventListener('click', function() {
-            //         if (!fpCheckbox.checked) return;
-            //         clearFPHighlights();
-            //         let r = parseInt(this.dataset.row);
-            //         let c = parseInt(this.dataset.col);
-            //         let r2 = (r + 5) % 10;
-            //         let c2 = (c + 5) % 10;
-            //         const targets = [{
-            //                 row: r,
-            //                 col: c
-            //             }, {
-            //                 row: r,
-            //                 col: c2
-            //             }, {
-            //                 row: r2,
-            //                 col: c
-            //             }, {
-            //                 row: r2,
-            //                 col: c2
-            //             },
-            //             {
-            //                 row: c,
-            //                 col: r
-            //             }, {
-            //                 row: c,
-            //                 col: r2
-            //             }, {
-            //                 row: c2,
-            //                 col: r
-            //             }, {
-            //                 row: c2,
-            //                 col: r2
-            //             }
-            //         ];
-            //         targets.forEach(target => {
-            //             const targetInput = document.querySelector(
-            //                 `.input-bet-field[data-row="${target.row}"][data-col="${target.col}"]`
-            //             );
-            //             if (targetInput) targetInput.style.backgroundColor = '#fff59d';
-            //         });
-            //     });
-            // });
-
-            // fpCheckbox.addEventListener('change', function() {
-            //     if (!this.checked) clearFPHighlights();
-            // });
 
             document.querySelectorAll('.input-bet-field').forEach(input => {
                 input.addEventListener('click', function() {
                     if (!fpCheckbox.checked) return;
                     clearFPHighlights();
+
                     let r = parseInt(this.dataset.row);
                     let c = parseInt(this.dataset.col);
                     let r2 = (r + 5) % 10;
                     let c2 = (c + 5) % 10;
+
                     const targets = [{
                             row: r,
                             col: c
                         }, {
                             row: r,
                             col: c2
-                        }, {
+                        },
+                        {
                             row: r2,
                             col: c
                         }, {
@@ -1448,7 +1409,8 @@
                         }, {
                             row: c,
                             col: r2
-                        }, {
+                        },
+                        {
                             row: c2,
                             col: r
                         }, {
@@ -1456,14 +1418,37 @@
                             col: r2
                         }
                     ];
+
+                    // Collect all 8 target inputs
+                    const linkedInputs = [];
                     targets.forEach(target => {
-                        const targetInput = document.querySelector(
+                        const el = document.querySelector(
                             `.input-bet-field[data-row="${target.row}"][data-col="${target.col}"]`
                         );
-                        if (targetInput) {
-                            targetInput.style.backgroundColor = '#fff59d';
-                            targetInput.value = 1;
+                        if (el) {
+                            el.style.backgroundColor = '#fff59d';
+                            el.value = 1;
+                            el.dataset.fpGroup = 'active'; // mark as FP group
+                            linkedInputs.push(el);
                         }
+                    });
+
+                    // Sync all linked inputs together
+                    linkedInputs.forEach(el => {
+                        // Remove old listener to avoid stacking
+                        el.removeEventListener('input', el._fpSyncHandler);
+
+                        el._fpSyncHandler = function() {
+                            const newVal = this.value;
+                            linkedInputs.forEach(other => {
+                                if (other !== this) {
+                                    other.value = newVal;
+                                }
+                            });
+                            document.dispatchEvent(new Event('recalculateGridStats'));
+                        };
+
+                        el.addEventListener('input', el._fpSyncHandler);
                     });
 
                     document.dispatchEvent(new Event('recalculateGridStats'));
@@ -1471,7 +1456,18 @@
             });
 
             fpCheckbox.addEventListener('change', function() {
-                if (!this.checked) clearFPHighlights();
+                if (!this.checked) {
+                    // Remove all FP sync listeners and clear highlights
+                    document.querySelectorAll('.input-bet-field[data-fp-group="active"]').forEach(el => {
+                        if (el._fpSyncHandler) {
+                            el.removeEventListener('input', el._fpSyncHandler);
+                            delete el._fpSyncHandler;
+                        }
+                        el.removeAttribute('data-fp-group');
+                        el.style.backgroundColor = '#fff';
+                    });
+                    clearFPHighlights();
+                }
             });
 
             // SHOW / HIDE RESULTS TOGGLE

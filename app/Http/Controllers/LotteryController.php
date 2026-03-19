@@ -6,10 +6,10 @@ use Illuminate\Http\Request;
 
 class LotteryController extends Controller
 {
-    public function accounts()
-    {
-        return view('lottry_pages.accounts.index');
-    }
+    // public function accounts()
+    // {
+    //     return view('lottry_pages.accounts.index');
+    // }
     // public function transactions()
     // {
     //     return view('lottery.pages.transactions');

@@ -14,18 +14,26 @@ use Illuminate\View\View;
 class UserController extends Controller
 {
     // 🟣 List Users
+
+
     // public function index(Request $request): View
     // {
     //     $auth = auth()->user();
 
+    //     // Use the optimized scope from the Model to get play/win totals in one query
+    //     $query = User::with(['role', 'status', 'parent'])->withOversightStats();
+
     //     if ($auth->role_id == 1) {
-    //         $users = User::orderBy('id', 'DESC')->paginate(20);
+    //         // Admin sees everyone
+    //         $users = $query->orderBy('id', 'DESC')->paginate(20);
     //     } elseif ($auth->role_id == 2) {
-    //         $users = User::where('parent_id', $auth->id)
+    //         // Agent sees their own retailers
+    //         $users = $query->where('parent_id', $auth->id)
     //             ->orderBy('id', 'DESC')
     //             ->paginate(20);
     //     } else {
-    //         $users = User::where('id', $auth->id)->paginate(1);
+    //         // Retailers see themselves
+    //         $users = $query->where('id', $auth->id)->paginate(1);
     //     }
 
     //     return view('users.index', compact('users'));
@@ -33,25 +41,45 @@ class UserController extends Controller
 
     public function index(Request $request): View
     {
-        $auth = auth()->user();
+        $auth   = auth()->user();
+        $search = $request->get('search');
+        $role   = $request->get('role');
 
-        // Use the optimized scope from the Model to get play/win totals in one query
         $query = User::with(['role', 'status', 'parent'])->withOversightStats();
 
+        // Role-based scope
         if ($auth->role_id == 1) {
-            // Admin sees everyone
-            $users = $query->orderBy('id', 'DESC')->paginate(20);
+            // Admin sees everyone — apply optional role filter
+            if ($role) {
+                $query->where('role_id', $role);
+            }
         } elseif ($auth->role_id == 2) {
-            // Agent sees their own retailers
-            $users = $query->where('parent_id', $auth->id)
-                ->orderBy('id', 'DESC')
-                ->paginate(20);
+            // Agent sees only their own retailers
+            $query->where('parent_id', $auth->id);
         } else {
-            // Retailers see themselves
-            $users = $query->where('id', $auth->id)->paginate(1);
+            // Retailer sees only themselves
+            $query->where('id', $auth->id);
         }
 
-        return view('users.index', compact('users'));
+        // Search: name, username, mobile, unique_id
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name',  'like', "%{$search}%")
+                    ->orWhere('username',   'like', "%{$search}%")
+                    ->orWhere('mobile',     'like', "%{$search}%")
+                    ->orWhere('unique_id',  'like', "%{$search}%");
+            });
+        }
+
+        $users = $query->orderBy('id', 'DESC')
+            ->paginate(20)
+            ->appends($request->only(['search', 'role']));
+
+        // Pass roles list for filter dropdown (admin only)
+        $roles = Role::all();
+
+        return view('users.index', compact('users', 'roles', 'search', 'role'));
     }
 
     public function oversight(Request $request, $id): View
@@ -168,6 +196,7 @@ class UserController extends Controller
             'username'   => 'required|string|max:100|unique:users,username',
             'password'   => 'required|confirmed|min:6',
             'role_id'    => 'required|integer',
+            'commision'          => 'nullable|numeric|min:0|max:100',
             'general_status_id' => 'required|integer',
         ]);
 
@@ -194,6 +223,7 @@ class UserController extends Controller
             'username'          => $request->username,
             'password'          => Hash::make($request->password),
             'balance'           => 0,
+            'commision'          => $request->commision ?? 0,
         ]);
 
         // Save starting transaction
@@ -231,12 +261,12 @@ class UserController extends Controller
             'email'      => 'nullable|email|max:255|unique:users,email,' . $user->id,
             'mobile'     => 'nullable|digits_between:8,15|unique:users,mobile,' . $user->id,
             'username'   => 'required|string|max:100|unique:users,username,' . $user->id,
-
+            'commision' => 'nullable|numeric|min:0|max:100',
             'role_id'    => 'required|integer',
             'general_status_id' => 'required|integer',
         ]);
 
-        $user->update($request->only(['first_name', 'last_name', 'email', 'mobile', 'username', 'role_id', 'general_status_id']));
+        $user->update($request->only(['first_name', 'last_name', 'email', 'mobile', 'username', 'commision', 'role_id', 'general_status_id']));
 
         return redirect()->route('users.index')->with('success', 'User Updated Successfully!');
     }

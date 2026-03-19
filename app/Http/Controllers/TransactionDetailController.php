@@ -5,38 +5,46 @@ namespace App\Http\Controllers;
 use App\Models\UserBalanceTransaction;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Carbon\Carbon;
 
 class TransactionDetailController extends Controller
 {
-    /**
-     * Display transactions based on hierarchy:
-     * Admin: Sees All
-     * Agent: Sees Self + Own Retailers
-     * Retailer: Sees Self Only
-     */
     public function index(Request $request): View
     {
         $auth = auth()->user();
 
-        // Start with 'debit' type (bet placements) and eager load relationships
-        $query = UserBalanceTransaction::where('type', 'debit')->with('user.parent');
+        // Default to today if no date selected
+        $selectedDate = $request->get('date', Carbon::today()->format('Y-m-d'));
+
+
+        $query = UserBalanceTransaction::where('type', 'debit')
+            ->whereHas('bets')
+            ->with(['user' => function ($q) {
+                $q->withTrashed(); // ← fetch soft deleted users too
+            }, 'user.parent' => function ($q) {
+                $q->withTrashed(); // ← fetch soft deleted parents too
+            }])
+            ->whereDate('created_at', $selectedDate);
 
         if ($auth->role_id == 1) {
-            // Admin sees every transaction in the system
-            $transactions = $query->latest()->paginate(20);
+            // Admin sees every debit transaction
+            $transactions = $query->latest()->paginate(20)->appends($request->only('date'));
         } elseif ($auth->role_id == 2) {
-            // Agent sees their own transactions OR those of their retailers
+            // Agent sees own + their retailers' transactions
             $transactions = $query->where(function ($q) use ($auth) {
                 $q->where('user_id', $auth->id)
                     ->orWhereHas('user', function ($sub) use ($auth) {
-                        $sub->where('parent_id', $auth->id); // Retailers registered by this agent
+                        $sub->where('parent_id', $auth->id);
                     });
-            })->latest()->paginate(20);
+            })->latest()->paginate(20)->appends($request->only('date'));
         } else {
-            // Retailer sees only their own bet transactions
-            $transactions = $query->where('user_id', $auth->id)->latest()->paginate(20);
+            // Retailer sees only their own
+            $transactions = $query->where('user_id', $auth->id)
+                ->latest()
+                ->paginate(20)
+                ->appends($request->only('date'));
         }
 
-        return view('lottry_pages.transaction_details.index', compact('transactions'));
+        return view('lottry_pages.transaction_details.index', compact('transactions', 'selectedDate'));
     }
 }

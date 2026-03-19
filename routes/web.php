@@ -1,16 +1,36 @@
 <?php
 
+use App\Http\Controllers\AccountController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\BetController;
+use App\Http\Controllers\ClaimController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LotteryController;
 use App\Http\Controllers\ResultController;
 use App\Http\Controllers\TransactionDetailController;
 use App\Http\Controllers\UserController;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Route;
 
+
+Route::get('/clear-config', function () {
+    Artisan::call('config:clear');
+    Artisan::call('cache:clear');
+    Artisan::call('config:cache');
+    return "Config cleared";
+});
+
+
+// Route::get('/server-path', function () {
+//     return base_path();
+// });
+
+// Route::get('/run-draw', function () {
+//     Artisan::call('draw:generate-results');
+//     return "Draw command executed";
+// });
 
 // 🔹 When user opens "/", show login screen
 Route::get('/', [AuthenticatedSessionController::class, 'create'])
@@ -38,11 +58,11 @@ Route::middleware(['auth'])->prefix('users')->name('users.')->group(function () 
 
 // Lottory Menu Pages
 Route::middleware(['auth'])->group(function () {
-    Route::get('/accounts',      [LotteryController::class, 'accounts'])->name('lotto.accounts');
+    Route::get('/accounts',      [AccountController::class, 'accounts'])->name('account.index');
     Route::get('/transaction-details', [TransactionDetailController::class, 'index'])->name('transactions.index');
     Route::get('/results', [ResultController::class, 'index'])->name('results.index');
     Route::get('/reprint',       [LotteryController::class, 'reprint'])->name('lotto.reprint');
-    Route::get('/claim',         [LotteryController::class, 'claim'])->name('lotto.claim');
+    Route::get('/claim',         [ClaimController::class, 'claim'])->name('claim.index');
 });
 
 
