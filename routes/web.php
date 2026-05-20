@@ -60,6 +60,8 @@ Route::middleware(['auth'])->prefix('users')->name('users.')->group(function () 
 Route::middleware(['auth'])->group(function () {
     Route::get('/accounts',      [AccountController::class, 'accounts'])->name('account.index');
     Route::get('/transaction-details', [TransactionDetailController::class, 'index'])->name('transactions.index');
+    Route::get('/cancel-bets', [TransactionDetailController::class, 'cancelPage'])->name('bets.cancel.page');
+    Route::post('/bets/cancel-draw', [TransactionDetailController::class, 'cancelDraw'])->name('bets.cancel.draw');
     Route::get('/results', [ResultController::class, 'index'])->name('results.index');
     Route::get('/reprint',       [LotteryController::class, 'reprint'])->name('lotto.reprint');
     Route::get('/claim',         [ClaimController::class, 'claim'])->name('claim.index');

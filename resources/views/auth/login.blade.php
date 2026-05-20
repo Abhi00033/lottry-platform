@@ -117,9 +117,12 @@
                 @csrf
 
                 <div class="mb-3">
-                    <label>Email or Login ID</label>
-                    <input type="text" name="login" class="form-control @error('login') is-invalid @enderror"
-                        value="{{ old('login') }}" required autofocus>
+                    <label>Login ID</label>
+                    {{-- <input type="text" name="login" class="form-control @error('login') is-invalid @enderror"
+                        value="{{ old('login') }}" required autofocus> --}}
+                    <input type="text" name="login" id="login_id"
+                        class="form-control @error('login') is-invalid @enderror" value="{{ old('login') }}" required
+                        autofocus>
                     @error('login')
                         <div class="invalid-feedback d-block">{{ $message }}</div>
                     @enderror
@@ -156,6 +159,28 @@
         </div>
 
     </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+
+            // Get saved login id
+            let savedLogin = localStorage.getItem("remember_login_id");
+
+            // Auto fill login field
+            if (savedLogin) {
+                document.getElementById("login_id").value = savedLogin;
+            }
+
+            // Save login id on form submit
+            document.querySelector("form").addEventListener("submit", function() {
+                let loginValue = document.getElementById("login_id").value;
+
+                if (loginValue.trim() !== "") {
+                    localStorage.setItem("remember_login_id", loginValue);
+                }
+            });
+
+        });
+    </script>
 
 </body>
 

@@ -22,9 +22,26 @@
         .x-small-text {
             font-size: 0.75rem;
         }
+
+        /* Makes the browser render the date input in dark mode natively */
+        input[type="date"] {
+            color-scheme: dark;
+        }
+
+        /* Inverts the calendar icon so it appears white/light on dark bg */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1) brightness(2);
+            cursor: pointer;
+            opacity: 0.8;
+        }
+
+        input[type="date"]::-webkit-calendar-picker-indicator:hover {
+            opacity: 1;
+        }
     </style>
 
     <div class="container py-4 text-white">
+
         {{-- Header & Filter Bar --}}
         <div class="card bg-dark border-secondary mb-4 shadow-lg">
             <div class="card-body">
@@ -32,6 +49,9 @@
                     <div class="col-xl-2 mb-3 mb-xl-0">
                         <h3 class="text-warning fw-bold mb-0">{{ strtoupper($user->username) }}</h3>
                         <span class="badge bg-secondary">{{ $user->role->name }}</span>
+                        @if ($user->commision > 0)
+                            <span class="badge bg-info text-dark ms-1">{{ $user->commision }}% comm.</span>
+                        @endif
                     </div>
                     <div class="col-xl-10">
                         <form action="{{ route('users.oversight', $user->id) }}" method="GET"
@@ -90,7 +110,9 @@
 
         {{-- Row 1: Period Stats --}}
         <div class="row g-3 mb-4">
-            <div class="col-md-3 col-6">
+
+            {{-- Tickets Sold --}}
+            <div class="col-md-2 col-6">
                 <div class="card bg-dark border-info border-2 h-100 shadow-sm">
                     <div class="card-body p-3 text-center">
                         <p class="text-info small mb-1 fw-bold text-uppercase">Tickets Sold</p>
@@ -98,7 +120,9 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 col-6">
+
+            {{-- Turnover --}}
+            <div class="col-md-2 col-6">
                 <div class="card bg-dark border-warning border-2 h-100 shadow-sm">
                     <div class="card-body p-3 text-center">
                         <p class="text-warning small mb-1 fw-bold text-uppercase">Turnover</p>
@@ -106,18 +130,45 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 col-6">
+
+            {{-- Win Payout --}}
+            <div class="col-md-2 col-6">
+                <div class="card bg-dark border-danger border-2 h-100 shadow-sm">
+                    <div class="card-body p-3 text-center">
+                        <p class="text-danger small mb-1 fw-bold text-uppercase">Win Payout</p>
+                        <h3 class="mb-0 text-white fw-bold">₹{{ number_format($totalWinAmount, 2) }}</h3>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Commission --}}
+            <div class="col-md-2 col-6">
+                <div class="card bg-dark border-secondary border-2 h-100 shadow-sm">
+                    <div class="card-body p-3 text-center">
+                        <p class="text-white-50 small mb-1 fw-bold text-uppercase">Commission</p>
+                        <h3 class="mb-0 text-white fw-bold">₹{{ number_format($commissionAmount, 2) }}</h3>
+                        <small class="text-white-50 x-small-text">{{ $user->commision }}%</small>
+                    </div>
+                </div>
+            </div>
+
+            {{-- Net P/L --}}
+            <div class="col-md-2 col-6">
                 <div
                     class="card bg-dark {{ $periodProfit >= 0 ? 'border-success' : 'border-danger' }} border-2 h-100 shadow-sm">
                     <div class="card-body p-3 text-center">
                         <p
                             class="{{ $periodProfit >= 0 ? 'text-success' : 'text-danger' }} small mb-1 fw-bold text-uppercase">
-                            Net P/L</p>
+                            Net P/L
+                        </p>
                         <h3 class="mb-0 text-white fw-bold">₹{{ number_format($periodProfit, 2) }}</h3>
+                        <small class="text-white-50 x-small-text">after comm.</small>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3 col-6">
+
+            {{-- Wallet --}}
+            <div class="col-md-2 col-6">
                 <div class="card bg-dark border-light border-2 h-100 shadow-sm">
                     <div class="card-body p-3 text-center">
                         <p class="text-white-50 small mb-1 fw-bold text-uppercase">Wallet</p>
@@ -125,13 +176,15 @@
                     </div>
                 </div>
             </div>
+
         </div>
 
         {{-- Top 10 Numbers Heat Map --}}
         <div class="card bg-dark border-warning mb-4 shadow">
             <div class="card-header border-warning bg-black py-2 d-flex justify-content-between align-items-center">
-                <h6 class="mb-0 text-warning fw-bold text-uppercase"><i class="fa fa-fire me-2"></i>Top 10 Numbers (By
-                    Liability)</h6>
+                <h6 class="mb-0 text-warning fw-bold text-uppercase">
+                    <i class="fa fa-fire me-2"></i>Top 10 Numbers (By Liability)
+                </h6>
                 @if ($drawTimeFilter)
                     <span class="badge bg-warning text-dark">Filtered:
                         {{ date('h:i A', strtotime($drawTimeFilter)) }}</span>
@@ -149,7 +202,8 @@
                             </div>
                         </div>
                     @empty
-                        <div class="col-12 text-center text-muted py-2 italic">No heavy betting detected for this selection.
+                        <div class="col-12 text-center text-muted py-2 italic">
+                            No heavy betting detected for this selection.
                         </div>
                     @endforelse
                 </div>
@@ -218,5 +272,6 @@
                 </div>
             @endif
         </div>
+
     </div>
 @endsection

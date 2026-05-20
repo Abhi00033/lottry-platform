@@ -74,8 +74,8 @@ return [
 
 
 
-    'draw_start' => env('DRAW_START_TIME', '08:00'),
-    'draw_end'   => env('DRAW_END_TIME', '22:30'),
+    'draw_start' => env('DRAW_START_TIME', '10:15'),
+    'draw_end'   => env('DRAW_END_TIME', '21:30'),
 
     /*
     |--------------------------------------------------------------------------

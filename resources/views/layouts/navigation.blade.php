@@ -147,6 +147,10 @@
                 class="btn-lotto btn-boxed {{ request()->routeIs('account.index') ? 'active' : '' }}">
                 Accounts
             </a>
+            <a href="{{ route('bets.cancel.page') }}"
+                class="btn-lotto btn-boxed {{ request()->routeIs('bets.cancel.page') ? 'active' : '' }}">
+                Cancel
+            </a>
 
             <button class="btn-lotto btn-boxed {{ request()->routeIs('password.*') ? 'active' : '' }}"
                 data-bs-toggle="modal" data-bs-target="#passwordModal">

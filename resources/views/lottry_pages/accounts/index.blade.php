@@ -171,6 +171,8 @@
                     to
                     <strong class="text-warning">{{ \Carbon\Carbon::parse($dateTo)->format('d M Y') }}</strong>
                     &nbsp;|&nbsp; Total: <strong class="text-warning">{{ $totalBets }}</strong>
+                    &nbsp;|&nbsp; <span class="text-info fw-bold">Active/Pending: {{ $pendingBets }}
+                        ({{ $pendingPoints }} pts)</span>
                     &nbsp;|&nbsp; <span class="text-success fw-bold">Won: {{ $wonBets }}</span>
                     &nbsp;|&nbsp; <span class="text-danger fw-bold">Lost: {{ $lostBets }}</span>
                 </small>
