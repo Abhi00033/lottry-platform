@@ -4,10 +4,7 @@
 
     <div class="container py-3">
 
-        <div class="d-flex
-                justify-content-between
-                align-items-center
-                mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
 
             <h3 class="fw-bold text-danger m-0">
 
@@ -19,153 +16,164 @@
 
         @forelse($transactions as $txn)
             @php
+
                 $groupedBets = $txn->bets->groupBy(function ($bet) {
                     return \Carbon\Carbon::parse($bet->draw_time)->format('Y-m-d H:i:s');
                 });
+
             @endphp
 
-            <div class="card mb-4 border-dark">
+            <div class="card mb-4 border-dark shadow-sm">
 
+                {{-- CARD HEADER --}}
                 <div
                     class="card-header
-                        bg-dark
-                        text-warning
-                        d-flex
-                        justify-content-between">
+                            bg-dark
+                            text-warning
+                            d-flex
+                            justify-content-between
+                            align-items-center">
 
                     <div>
 
                         <strong>
-                            TXN:
+                            Transaction:
                         </strong>
 
                         {{ $txn->transaction_number }}
 
                     </div>
 
+                    {{-- <div>
+
+                        Total :
+                        ₹{{ number_format($txn->amount, 2) }}
+
+                    </div> --}}
                     <div>
 
-                        ₹{{ number_format($txn->amount, 2) }}
+                        <span class="badge bg-warning text-dark">
+
+                            {{ $groupedBets->count() }} Draws
+
+                        </span>
 
                     </div>
 
                 </div>
 
-                <div class="card-body">
+                {{-- CARD BODY --}}
+                <div class="card-body p-0">
 
-                    {{-- DRAW TABS --}}
-                    <ul class="nav nav-tabs mb-3">
+                    <div class="table-responsive">
 
-                        @foreach ($groupedBets as $drawTime => $bets)
-                            @php
-                                $tabId = 'tab_' . md5($txn->id . $drawTime);
-                                $drawObj = \Carbon\Carbon::parse($drawTime);
-                            @endphp
+                        <table class="table table-bordered table-striped align-middle mb-0">
 
-                            <li class="nav-item">
+                            <thead class="table-dark text-center">
 
-                                <button class="nav-link {{ $loop->first ? 'active' : '' }}" data-bs-toggle="tab"
-                                    data-bs-target="#{{ $tabId }}" type="button">
+                                <tr>
 
-                                    {{ $drawObj->format('h:i A') }}
+                                    <th width="180">
+                                        Transaction No
+                                    </th>
 
-                                </button>
+                                    <th width="220">
+                                        Bet Time
+                                    </th>
 
-                            </li>
-                        @endforeach
+                                    <th width="220">
+                                        Draw Time
+                                    </th>
 
-                    </ul>
+                                    <th width="120">
+                                        Total Bets
+                                    </th>
 
-                    {{-- TAB CONTENT --}}
-                    <div class="tab-content">
+                                    <th width="140">
+                                        Total Points
+                                    </th>
 
-                        @foreach ($groupedBets as $drawTime => $bets)
-                            @php
+                                    <th width="140">
+                                        Action
+                                    </th>
 
-                                $tabId = 'tab_' . md5($txn->id . $drawTime);
+                                </tr>
 
-                                $drawObj = \Carbon\Carbon::parse($drawTime);
+                            </thead>
 
-                            @endphp
+                            <tbody>
 
-                            <div class="tab-pane fade
-                            {{ $loop->first ? 'show active' : '' }}"
-                                id="{{ $tabId }}">
+                                @foreach ($groupedBets as $drawTime => $bets)
+                                    @php
 
-                                <div
-                                    class="d-flex
-                                        justify-content-between
-                                        align-items-center
-                                        mb-3">
+                                        $drawObj = \Carbon\Carbon::parse($drawTime);
 
-                                    <div>
+                                    @endphp
 
-                                        <strong>
-                                            Draw:
-                                        </strong>
+                                    <tr>
 
-                                        {{ $drawObj->format('d M Y h:i A') }}
+                                        {{-- TRANSACTION NUMBER --}}
+                                        <td class="fw-bold text-primary">
 
-                                    </div>
+                                            {{ $txn->transaction_number }}
 
-                                    <form method="POST" action="{{ route('bets.cancel.draw') }}">
+                                        </td>
 
-                                        @csrf
+                                        {{-- BET TIME --}}
+                                        <td>
 
-                                        <input type="hidden" name="transaction_id" value="{{ $txn->id }}">
+                                            {{ $txn->created_at->format('d M Y h:i A') }}
 
-                                        <input type="hidden" name="draw_time" value="{{ $drawTime }}">
+                                        </td>
 
-                                        <button class="btn btn-danger btn-sm">
+                                        {{-- DRAW TIME --}}
+                                        <td class="fw-bold text-danger">
 
-                                            Cancel Draw
+                                            {{ $drawObj->format('d M Y h:i A') }}
 
-                                        </button>
+                                        </td>
 
-                                    </form>
+                                        {{-- TOTAL BETS --}}
+                                        <td class="text-center fw-bold">
 
-                                </div>
+                                            {{ $bets->count() }}
 
-                                <table class="table table-bordered">
+                                        </td>
 
-                                    <thead class="table-dark">
+                                        {{-- TOTAL POINTS --}}
+                                        <td class="text-center fw-bold text-success">
 
-                                        <tr>
+                                            ₹{{ number_format($bets->sum('points'), 2) }}
 
-                                            <th>Number</th>
-                                            <th>Qty</th>
-                                            <th>Points</th>
+                                        </td>
 
-                                        </tr>
+                                        {{-- ACTION --}}
+                                        <td class="text-center">
 
-                                    </thead>
+                                            <form method="POST" action="{{ route('bets.cancel.draw') }}">
 
-                                    <tbody>
+                                                @csrf
 
-                                        @foreach ($bets as $bet)
-                                            <tr>
+                                                <input type="hidden" name="transaction_id" value="{{ $txn->id }}">
 
-                                                <td>
-                                                    {{ $bet->number }}
-                                                </td>
+                                                <input type="hidden" name="draw_time" value="{{ $drawTime }}">
 
-                                                <td>
-                                                    {{ $bet->qty }}
-                                                </td>
+                                                <button class="btn btn-danger btn-sm fw-bold px-3">
 
-                                                <td>
-                                                    ₹{{ number_format($bet->points, 2) }}
-                                                </td>
+                                                    Cancel
 
-                                            </tr>
-                                        @endforeach
+                                                </button>
 
-                                    </tbody>
+                                            </form>
 
-                                </table>
+                                        </td>
 
-                            </div>
-                        @endforeach
+                                    </tr>
+                                @endforeach
+
+                            </tbody>
+
+                        </table>
 
                     </div>
 
@@ -182,6 +190,48 @@
             </div>
         @endforelse
 
+        {{-- PAGINATION --}}
+        @if ($transactions->hasPages())
+            <div class="mt-3 d-flex justify-content-end">
+
+                {{ $transactions->links() }}
+
+            </div>
+        @endif
+
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+
+            document.querySelectorAll('form[action*="cancel"]').forEach(form => {
+
+                form.addEventListener('submit', function(e) {
+
+                    e.preventDefault();
+
+                    Swal.fire({
+                        title: 'Cancel Bet?',
+                        text: 'Are you sure you want to cancel this draw?',
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: 'Yes, Cancel',
+                        cancelButtonText: 'No'
+                    }).then((result) => {
+
+                        if (result.isConfirmed) {
+                            form.submit();
+                        }
+
+                    });
+
+                });
+
+            });
+
+        });
+    </script>
 
 @endsection

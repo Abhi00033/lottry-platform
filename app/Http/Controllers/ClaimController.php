@@ -11,23 +11,37 @@ class ClaimController extends Controller
 {
     public function claim(Request $request): View
     {
-        $auth         = auth()->user();
-        $selectedDate = $request->get('date', Carbon::today()->format('Y-m-d'));
+        $auth = auth()->user();
+
+        $selectedDate = $request->get(
+            'date',
+            Carbon::today()->format('Y-m-d')
+        );
+
         $statusFilter = $request->get('status', '');
 
         $query = Bet::where('user_id', $auth->id)
-            ->whereIn('status', ['won', 'lost'])
+            ->whereIn('status', ['won', 'lost', 'pending'])
             ->whereDate('draw_time', $selectedDate)
             ->with(['series', 'transaction']);
 
-        if ($statusFilter === 'won' || $statusFilter === 'lost') {
+        if (in_array($statusFilter, ['won', 'lost', 'pending'])) {
             $query->where('status', $statusFilter);
         }
 
         $bets = $query->latest('draw_time')
             ->paginate(20)
-            ->appends($request->only(['date', 'status']));
+            ->appends(
+                $request->only(['date', 'status'])
+            );
 
-        return view('lottry_pages.claim.index', compact('bets', 'selectedDate', 'statusFilter'));
+        return view(
+            'lottry_pages.claim.index',
+            compact(
+                'bets',
+                'selectedDate',
+                'statusFilter'
+            )
+        );
     }
 }

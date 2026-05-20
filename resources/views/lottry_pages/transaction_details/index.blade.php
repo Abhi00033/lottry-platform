@@ -49,80 +49,60 @@
             <table class="table table-dark table-bordered table-hover align-middle text-center mb-0">
                 <thead style="background-color: #2a2a2a;">
                     <tr>
-                        <th class="text-warning" style="width: 50px;">Sr No.</th>
-                        <th class="text-warning">TXN Number</th>
-                        @if (auth()->user()->role_id != 3)
-                            <th class="text-warning">User (Retailer)</th>
-                            <th class="text-warning">Registered By (Agent)</th>
-                        @endif
-                        <th class="text-warning">Points Deducted</th>
-                        <th class="text-warning">Balance After</th>
-                        <th class="text-warning">Date & Time</th>
-                        <th class="text-warning">Remarks</th>
+                        <th class="text-warning">Sr No.</th>
+                        <th class="text-warning">Draw Time</th>
+                        <th class="text-warning">Sale Points</th>
+                        <th class="text-warning">Cancel Points</th>
+                        <th class="text-warning">Win Points</th>
                     </tr>
                 </thead>
+
                 <tbody>
+
                     @forelse ($transactions as $index => $txn)
                         <tr>
-                            <td class="text-secondary">{{ $transactions->firstItem() + $index }}</td>
 
-                            {{-- TXN Number --}}
+                            <td>
+                                {{ $transactions->firstItem() + $index }}
+                            </td>
+
+                            <td class="fw-bold text-info">
+                                {{ \Carbon\Carbon::parse($txn->draw_time)->format('d M Y h:i A') }}
+                            </td>
+
+                            <td class="fw-bold text-success">
+                                ₹{{ number_format($txn->sale_points, 2) }}
+                            </td>
+
+                            <td class="fw-bold text-danger">
+                                ₹{{ number_format($txn->cancel_points, 2) }}
+                            </td>
+
                             <td class="fw-bold text-warning">
-                                {{ $txn->user ? $txn->transaction_number : '—' }}
+                                ₹{{ number_format($txn->win_points, 2) }}
                             </td>
 
-                            @if (auth()->user()->role_id != 3)
-                                {{-- User (Retailer) column — soft delete safe --}}
-                                <td>
-                                    @if (!$txn->user)
-                                        <span class="text-secondary">Unknown User</span>
-                                    @elseif ($txn->user_id == auth()->id())
-                                        <span class="badge bg-primary">
-                                            Me ({{ $txn->user->username }})
-                                        </span>
-                                    @else
-                                        <span class="text-white">{{ $txn->user->username }}</span>
-                                        @if ($txn->user->deleted_at)
-                                            <span class="badge bg-danger ms-1" style="font-size:0.65rem;">Deleted</span>
-                                        @endif
-                                    @endif
-                                </td>
-
-                                {{-- Registered By (Agent) column — soft delete safe --}}
-                                <td>
-                                    @if ($txn->user && $txn->user->parent)
-                                        <span class="fw-bold text-warning">
-                                            {{ $txn->user->parent->username }}
-                                        </span>
-                                        @if ($txn->user->parent->deleted_at)
-                                            <span class="badge bg-danger ms-1" style="font-size:0.65rem;">Deleted</span>
-                                        @endif
-                                    @else
-                                        <span class="text-secondary">—</span>
-                                    @endif
-                                </td>
-                            @endif
-
-                            <td class="fw-bold text-danger">− ₹{{ number_format($txn->amount, 2) }}</td>
-                            <td class="text-white">₹{{ number_format($txn->balance_after, 2) }}</td>
-                            <td class="text-white-50" style="font-size: 0.85rem;">
-                                {{ $txn->created_at->format('d M Y') }}<br>
-                                <span class="text-warning">{{ $txn->created_at->format('h:i A') }}</span>
-                            </td>
-                            <td><small class="text-light">{{ $txn->remarks ?? '—' }}</small></td>
                         </tr>
+
                     @empty
+
                         <tr>
-                            <td colspan="{{ auth()->user()->role_id != 3 ? 8 : 5 }}" class="text-center py-5">
+                            <td colspan="5" class="text-center py-5">
+
                                 <div class="text-secondary">
-                                    <i class="fas fa-receipt fa-2x mb-2 d-block"></i>
-                                    No transactions found for
-                                    <strong
-                                        class="text-warning">{{ \Carbon\Carbon::parse($selectedDate)->format('d M Y') }}</strong>
+
+                                    No records found for
+
+                                    <strong class="text-warning">
+                                        {{ \Carbon\Carbon::parse($selectedDate)->format('d M Y') }}
+                                    </strong>
+
                                 </div>
+
                             </td>
                         </tr>
                     @endforelse
+
                 </tbody>
             </table>
         </div>

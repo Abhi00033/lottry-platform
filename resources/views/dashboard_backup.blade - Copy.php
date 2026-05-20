@@ -347,6 +347,7 @@
 
         .master-header-box {
             background: #4fa134;
+            /* Theme Dark Purple */
             border: 1px solid #000;
             height: 37px;
             display: flex;
@@ -366,12 +367,15 @@
             outline: none;
         }
 
+        /* Betting Cells */
         .bet-cell {
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: flex-end;
+            /* Keeps input at the bottom of the cell */
             height: 38px;
+            /* Must match .series-row-compact */
         }
 
         .digit-label-sm {
@@ -393,7 +397,7 @@
 
         /* Stats Area */
         .stats-sidebar {
-            width: 250px;
+            width: 140px;
             flex-shrink: 0;
         }
 
@@ -529,9 +533,39 @@
         }
     </style>
 
-    <div class="container-fluid px-2">
+    <div class="container-fluid p-0 m-0">
+        <table class="dash-table">
+            <tr>
+                <th>Time To Draw</th>
+                <th>Dr. Time</th>
+                <th>Dr. Date</th>
+                <th>Balance Credit</th>
+                <th>Last Tr. No.</th>
+                <th>Last Tr. PT.</th>
+                <th style="background:#000;"></th>
+            </tr>
+            <tr>
+                <td id="timeToDraw">--:--</td>
+                <td id="drawTime">--:--</td>
+                <td>{{ date('d/m/Y') }}</td>
+                <td>{{ number_format($user->balance, 2) }}</td>
+                <td>{{ $lastTransaction ? $lastTransaction->transaction_number : 'NA' }}</td>
+                <td>
+                    @if ($lastTransaction)
+                        {{ number_format($lastTransaction->amount, 2) }}
+                    @else
+                        NA
+                    @endif
+                </td>
+                <td><button class="btn-adv-draw" data-bs-toggle="modal" data-bs-target="#advanceDrawModal"
+                        id="btnOpenAdvance">Advance Draw</button></td>
+            </tr>
+        </table>
+    </div>
+
+    <div class="container-fluid px-2 mt-2">
         {{-- result  --}}
-        {{-- <div class="container-fluid p-0">
+        <div class="container-fluid p-0 mb-3">
             <div class="d-flex align-items-center gap-1" style="overflow-x: auto;">
                 @php
                     $rowColors = [
@@ -558,41 +592,26 @@
                     </div>
                 @endfor
             </div>
-        </div> --}}
-
-        <div class="container-fluid p-0 m-0">
-            <table class="dash-table">
-                <tr>
-                    <th>Time To Draw</th>
-                    <th>Dr. Time</th>
-                    <th>Dr. Date</th>
-                    <th>Balance Credit</th>
-                    <th>Last Tr. No.</th>
-                    <th>Last Tr. PT.</th>
-                    <th style="background:#000;"></th>
-                </tr>
-                <tr>
-                    <td id="timeToDraw">--:--</td>
-                    <td id="drawTime">--:--</td>
-                    <td>{{ date('d/m/Y') }}</td>
-                    <td>{{ number_format($user->balance, 2) }}</td>
-                    <td>{{ $lastTransaction ? $lastTransaction->transaction_number : 'NA' }}</td>
-                    <td>
-                        @if ($lastTransaction)
-                            {{ number_format($lastTransaction->amount, 2) }}
-                        @else
-                            NA
-                        @endif
-                    </td>
-                    <td><button class="btn-adv-draw" data-bs-toggle="modal" data-bs-target="#advanceDrawModal"
-                            id="btnOpenAdvance">Advance Draw</button></td>
-                </tr>
-            </table>
         </div>
         <!-- ===== SERIES SELECT STRIP (TOP TABS) ===== -->
-        <div class="d-flex flex-wrap gap-2 align-items-center">
+        <div class="d-flex flex-wrap gap-2 mb-2 align-items-center">
             <span class="fw-bold px-3 rounded text-dark"
                 style="background: var(--btn-yellow); border:1px solid #000;">Series</span>
+
+            {{-- <div class="d-flex gap-2 bg-dark rounded border border-warning">
+                <label class="text-white px-2" style="cursor:pointer;">
+                    <input type="radio" name="series_filter" value="all" class="filter-radio"> All
+                </label>
+                <label class="text-white px-2" style="cursor:pointer;">
+                    <input type="radio" name="series_filter" value="odd" class="filter-radio"> Odd
+                </label>
+                <label class="text-white px-2" style="cursor:pointer;">
+                    <input type="radio" name="series_filter" value="even" class="filter-radio"> Even
+                </label>
+                <label class="text-white px-2" style="cursor:pointer;">
+                    <input type="radio" name="series_filter" value="none" class="filter-radio"> None
+                </label>
+            </div> --}}
 
             @foreach ($series_master as $s)
                 <label class="series-tab d-flex align-items-center gap-2 px-3 rounded" data-series="{{ $s->start }}"
@@ -605,8 +624,9 @@
         </div>
 
         {{-- grid second layer of feilds --}}
-        <div class="container-fluid px-2">
-            <div class="d-flex align-items-center justify-content-between bg-white border border-dark rounded shadow-sm">
+        <div class="container-fluid px-2 mt-2">
+            <div
+                class="d-flex align-items-center justify-content-between p-1 bg-white border border-dark rounded shadow-sm">
 
                 <div class="d-flex gap-2">
                     <button type="button" class="btn-control btn-green">High</button>
@@ -648,7 +668,7 @@
 
         {{-- main grid div section  --}}
 
-        <div class="container-fluid px-2">
+        <div class="container-fluid px-2 mt-2">
             <div class="bet-grid-parent">
 
                 <div class="sidebar-range">
@@ -677,8 +697,8 @@
                 </div>
 
                 <div class="px-2 border-end border-start" style="width: 85px; flex-shrink: 0; background: #f8f9fa;">
-                    <div class="fw-bold text-center border-bottom mb-2 bg-dark text-white py-1" style="font-size: 0.75rem;">
-                        AMT</div>
+                    <div class="fw-bold text-center border-bottom mb-2 bg-dark text-white py-1"
+                        style="font-size: 0.75rem;">AMT</div>
                     @foreach ([2, 4, 10, 20, 40] as $a)
                         <label class="d-flex align-items-center fw-bold mb-2"
                             style="font-size:0.9rem; cursor:pointer; color: #000;">
@@ -814,6 +834,7 @@
 
     </div>
 
+
     {{-- advance draw Modal --}}
     <div class="modal fade" id="advanceDrawModal" tabindex="-1" aria-labelledby="advanceDrawLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
@@ -847,12 +868,13 @@
     </div>
 
 
+
     <script>
         // Pass PHP Config to JavaScript
-        // const DRAW_CONF = {
-        //     start: "{{ config('app.draw_start') }}", // e.g. "08:00"
-        //     end: "{{ config('app.draw_end') }}" // e.g. "22:30"
-        // };
+        const DRAW_CONF = {
+            start: "{{ config('app.draw_start') }}", // e.g. "08:00"
+            end: "{{ config('app.draw_end') }}" // e.g. "22:30"
+        };
 
         function getConfigTime(timeStr) {
             return timeStr.split(':').map(Number);
@@ -1071,8 +1093,8 @@
                 });
             });
 
-            //    UPDATE VIEW (CORE) - FIXED LOGIC HERE added in navigation page
-            // const lastDrawResults = @json($lastResults);
+            //    UPDATE VIEW (CORE) - FIXED LOGIC HERE
+            const lastDrawResults = @json($lastResults);
 
             function updateView() {
                 const baseSeries = currentBaseSeries ?? 1000;
@@ -1105,11 +1127,11 @@
                     }
 
                     // UPDATE THE 10-COLUMN TOP STRIP (Dynamic Result Row)
-
-                    // const topVal = document.getElementById(`top-res-val-${i}`);
+                    // const topLabel = document.getElementById(`top-res-label-${i}`);
+                    const topVal = document.getElementById(`top-res-val-${i}`);
 
                     // if (topLabel) topLabel.innerText = `${rowStart}-${rowEnd}`;
-                    // if (topVal) topVal.innerText = displayWinner;
+                    if (topVal) topVal.innerText = displayWinner;
 
                     // Apply Logic for Sidebar Amount calculation and Selection Styling
                     const rowEl = label ? label.closest('.series-row-compact') : null;
@@ -1132,42 +1154,12 @@
 
                         // Selection Highlight Logic
                         const rowColor = amtEl.style.background;
-
-                        // if (i === activeSeriesRow || (rowCB && rowCB.checked)) {
-                        //     textEl.style.background = rowColor;
-                        //     amtEl.style.outline = '3px solid #000';
-                        // } else {
-                        //     textEl.style.background = '#fff';
-                        //     amtEl.style.outline = 'none';
-                        // }
-
-
-                        // PAGE ACTIVE ROW VISUAL
-                        if (i === activeSeriesRow) {
-
-                            // current page highlight
-                            textEl.style.background = '#000';
-                            textEl.style.color = '#fff';
-
+                        if (i === activeSeriesRow || (rowCB && rowCB.checked)) {
+                            textEl.style.background = rowColor;
                             amtEl.style.outline = '3px solid #000';
-
                         } else {
-
-                            // normal selected rows
-                            if (rowCB && rowCB.checked) {
-
-                                textEl.style.background = rowColor;
-                                textEl.style.color = '#000';
-
-                                amtEl.style.outline = '1px solid #000';
-
-                            } else {
-
-                                textEl.style.background = '#fff';
-                                textEl.style.color = '#000';
-
-                                amtEl.style.outline = 'none';
-                            }
+                            textEl.style.background = '#fff';
+                            amtEl.style.outline = 'none';
                         }
                     }
                 }
@@ -1603,166 +1595,6 @@
                 document.getElementById('totalPoints').value = totalPoints;
             }
 
-            /* =====================================================
-           FULL GRID + MASTER INPUT NAVIGATION
-        ===================================================== */
-
-            function focusInput(selector) {
-
-                const target = document.querySelector(selector);
-
-                if (target) {
-                    target.focus();
-                    target.select();
-                }
-            }
-
-            /* ---------- CENTER GRID ---------- */
-
-            document.querySelectorAll('.input-bet-field').forEach(input => {
-
-                input.addEventListener('keydown', function(e) {
-
-                    let row = parseInt(this.dataset.row);
-                    let col = parseInt(this.dataset.col);
-
-                    // LEFT
-                    if (e.key === 'ArrowLeft') {
-
-                        e.preventDefault();
-
-                        // move to row master
-                        if (col === 0) {
-
-                            focusInput(`.master-row[data-row="${row}"]`);
-                            return;
-                        }
-
-                        col--;
-
-                    }
-
-                    // RIGHT
-                    else if (e.key === 'ArrowRight') {
-
-                        e.preventDefault();
-
-                        col = (col + 1) % 10;
-
-                    }
-
-                    // UP
-                    else if (e.key === 'ArrowUp') {
-
-                        e.preventDefault();
-
-                        // move to column master
-                        if (row === 0) {
-
-                            focusInput(`.master-col[data-col="${col}"]`);
-                            return;
-                        }
-
-                        row--;
-
-                    }
-
-                    // DOWN
-                    else if (e.key === 'ArrowDown') {
-
-                        e.preventDefault();
-
-                        row = (row + 1) % 10;
-
-                    } else {
-                        return;
-                    }
-
-                    focusInput(
-                        `.input-bet-field[data-row="${row}"][data-col="${col}"]`
-                    );
-                });
-            });
-
-            /* ---------- TOP MASTER COLUMNS ---------- */
-
-            document.querySelectorAll('.master-col').forEach(input => {
-
-                input.addEventListener('keydown', function(e) {
-
-                    let col = parseInt(this.dataset.col);
-
-                    // LEFT
-                    if (e.key === 'ArrowLeft') {
-
-                        e.preventDefault();
-
-                        col = (col - 1 + 10) % 10;
-
-                        focusInput(`.master-col[data-col="${col}"]`);
-                    }
-
-                    // RIGHT
-                    else if (e.key === 'ArrowRight') {
-
-                        e.preventDefault();
-
-                        col = (col + 1) % 10;
-
-                        focusInput(`.master-col[data-col="${col}"]`);
-                    }
-
-                    // DOWN
-                    else if (e.key === 'ArrowDown') {
-
-                        e.preventDefault();
-
-                        focusInput(
-                            `.input-bet-field[data-row="0"][data-col="${col}"]`
-                        );
-                    }
-                });
-            });
-
-            /* ---------- LEFT MASTER ROWS ---------- */
-
-            document.querySelectorAll('.master-row').forEach(input => {
-
-                input.addEventListener('keydown', function(e) {
-
-                    let row = parseInt(this.dataset.row);
-
-                    // UP
-                    if (e.key === 'ArrowUp') {
-
-                        e.preventDefault();
-
-                        row = (row - 1 + 10) % 10;
-
-                        focusInput(`.master-row[data-row="${row}"]`);
-                    }
-
-                    // DOWN
-                    else if (e.key === 'ArrowDown') {
-
-                        e.preventDefault();
-
-                        row = (row + 1) % 10;
-
-                        focusInput(`.master-row[data-row="${row}"]`);
-                    }
-
-                    // RIGHT
-                    else if (e.key === 'ArrowRight') {
-
-                        e.preventDefault();
-
-                        focusInput(
-                            `.input-bet-field[data-row="${row}"][data-col="0"]`
-                        );
-                    }
-                });
-            });
             /* =====================================================
                STATS TRIGGERS
             ===================================================== */

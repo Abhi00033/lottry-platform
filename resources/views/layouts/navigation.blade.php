@@ -1,182 +1,484 @@
 <style>
     :root {
-        /* Theme: Midnight Navy & Burnished Gold */
-        --bg-main: linear-gradient(135deg, #1a1c2c, #4a192c);
-        --bg-secondary: #ffb703;
-        --bg-card-dark: #2a2d3e;
-        --text-light: #ffffff;
-        --text-dark: #222;
-
-        --btn-yellow: #ffb703;
-        --btn-yellow-hover: #e0a500;
-        --btn-red: #dc3545;
-        --btn-red-hover: #bb2d3b;
-        --btn-green: #198754;
+        --gold: #f5a300;
+        --gold-dark: #c78600;
     }
 
-    /* Modal Content Styling */
+    .main-header {
+        background: linear-gradient(135deg, #1a1c2c, #4a192c);
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+    }
+
+
+    .logo-side {
+        width: 120px;
+        min-width: 120px;
+        background: #fff;
+        border-right: 3px solid #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 4px;
+    }
+
+    .logo-side img {
+        /* width: 195px;
+        height: 136px; */
+        width: 195px;
+        height: 136px;
+    }
+
+    .top-welcome-bar {
+        background: linear-gradient(to right, #5b0000, #9b0037, #5b0000);
+        min-height: 38px;
+        color: #fff700;
+        font-weight: 900;
+        font-size: 1.05rem;
+        padding: 0 15px;
+    }
+
+    .slot-box {
+        width: 190px;
+        min-width: 190px;
+
+        background: linear-gradient(135deg, #8a2be2, #b84dff);
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        color: #fff;
+        font-size: 1.1rem;
+        font-weight: 900;
+
+        border-right: 2px solid #c78600;
+    }
+
+    /* .slot-box {
+        width: 260px;
+        min-width: 260px;
+        background: linear-gradient(135deg, #8a2be2, #b84dff);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 1.1rem;
+        font-weight: 900;
+        border-right: 2px solid #c78600;
+    } */
+
+    /* .menu-strip {
+        background: var(--gold);
+        min-height: 52px;
+        padding: 4px;
+    } */
+
+    /* .menu-strip {
+        background: var(--gold);
+        height: 40px;
+        padding: 0 6px;
+
+        display: flex;
+        align-items: flex-start;
+
+        overflow: hidden;
+    } */
+
+    /* .top-nav-btn {
+        background: linear-gradient(to bottom, #ffe16a, #ffc400);
+        color: #000;
+        border: 1px solid #8f6200;
+        border-radius: 2px;
+        padding: 3px 14px;
+        font-size: .85rem;
+        font-weight: 700;
+        text-decoration: none;
+        min-width: 105px;
+        text-align: center;
+        line-height: 24px;
+    } */
+
+    .menu-strip {
+        background: var(--gold);
+
+        height: 52px;
+
+        padding: 0 8px;
+
+        display: flex;
+        align-items: center;
+
+        gap: 6px;
+
+        overflow: hidden;
+
+        margin: 0;
+    }
+
+    /*
+    .top-nav-btn {
+        background: linear-gradient(to bottom, #ffe16a, #ffc400);
+        color: #000;
+        border: 1px solid #8f6200;
+        border-radius: 2px;
+
+        height: 32px;
+        line-height: 30px;
+
+        padding: 0 14px;
+
+        font-size: .85rem;
+        font-weight: 700;
+
+        min-width: 105px;
+
+        text-align: center;
+        text-decoration: none;
+
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+
+        margin-top: 0;
+        margin-bottom: 0;
+    } */
+
+    .top-nav-btn {
+        background: linear-gradient(to bottom, #ffe16a, #ffc400);
+
+        color: #000;
+
+        border: 1px solid #8f6200;
+
+        border-radius: 2px;
+
+        height: 36px;
+
+        line-height: 34px;
+
+        padding: 0 18px;
+
+        font-size: .92rem;
+
+        font-weight: 700;
+
+        min-width: 130px;
+
+        text-align: center;
+
+        text-decoration: none;
+
+        display: inline-flex;
+
+        align-items: center;
+
+        justify-content: center;
+
+        margin: 0;
+    }
+
+
+    .top-nav-btn:hover {
+        color: #000;
+    }
+
     .modal-content-custom {
-        background: var(--bg-card-dark) !important;
-        color: white !important;
-        border: 1px solid var(--btn-yellow) !important;
-        backdrop-filter: blur(10px);
+        background: linear-gradient(135deg, #1b1d2b, #2c2038) !important;
+        color: #fff !important;
+        border: 2px solid #f5a300 !important;
+        border-radius: 8px !important;
+        overflow: hidden;
+        box-shadow: 0 10px 35px rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-header {
+        background: linear-gradient(to right, #5b0000, #8b0030);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+        padding: 12px 18px;
+    }
+
+    .modal-title {
+        color: #ffdf4d !important;
+        font-size: 1.1rem;
+        letter-spacing: .5px;
+    }
+
+    .modal-body {
+        padding: 20px;
+    }
+
+    .modal-footer {
+        background: rgba(255, 255, 255, 0.03);
+        border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+        padding: 12px 18px;
     }
 
     .pass-field {
-        padding-right: 40px;
+        background: #111827 !important;
+        border: 1px solid #4b5563 !important;
+        color: #fff !important;
+        height: 44px;
+        border-radius: 5px;
+        padding-right: 42px;
+    }
+
+    .pass-field:focus {
+        border-color: #f5a300 !important;
+        box-shadow: 0 0 0 0.15rem rgba(245, 163, 0, .25) !important;
+        background: #111827 !important;
+        color: #fff !important;
     }
 
     .toggle-eye {
         position: absolute;
-        top: 38px;
-        right: 12px;
+        top: 39px;
+        right: 14px;
         cursor: pointer;
-        color: var(--btn-yellow);
-        font-size: 1.1rem;
-    }
-
-    /* Button & UI Styles */
-    .btn-lotto {
-        background: #ffffff;
-        color: var(--text-dark);
-        border-radius: 4px;
-        border: 1px solid rgba(0, 0, 0, 0.2);
-        padding: 6px 18px;
-        font-size: 0.95rem;
-        font-weight: 600;
-        text-decoration: none;
-        display: inline-block;
-    }
-
-    .btn-lotto.active {
-        background: var(--btn-green) !important;
-        color: #fff !important;
-        font-weight: 900;
-        border-color: #b87300 !important;
-        box-shadow: 0 0 6px rgba(255, 183, 3, 0.6);
-    }
-
-    .btn-lotto-yellow {
-        background: var(--btn-yellow);
-        color: var(--text-dark);
-        padding: 6px 18px;
-        font-weight: 600;
-        text-decoration: none;
-    }
-
-    .btn-lotto-red {
-        background: var(--btn-red);
-        color: #fff;
-        padding: 6px 18px;
-        font-weight: 600;
-        text-decoration: none;
+        color: #ffc107;
+        font-size: 1rem;
+        z-index: 5;
     }
 
     .btn-lotto-green {
-        background: var(--btn-green);
+        background: linear-gradient(to bottom, #28c76f, #198754);
         color: #fff;
-        padding: 8px 20px;
-        font-weight: 600;
-        text-decoration: none;
+        padding: 8px 18px;
+        font-weight: 700;
         border-radius: 4px;
+        border: none;
     }
 
-    .btn-boxed {
-        border: 1px solid rgba(0, 0, 0, 0.3);
-        box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+    .btn-lotto-green:hover {
+        background: linear-gradient(to bottom, #34d67c, #157347);
     }
 
-    /* The Slot Box */
-    #slotWrapper {
-        background: #121212;
-        color: var(--btn-yellow);
-        padding: .35rem 1rem;
-        border-radius: 4px;
-        border: 1px solid var(--btn-yellow);
+    .btn-close-white {
+        filter: brightness(0) invert(1);
+    }
+
+
+    .result-strip {
         display: flex;
         align-items: center;
-        gap: 8px;
+
+        overflow: hidden;
+
+        margin: 0;
+        padding: 0;
+
+        line-height: 0;
     }
 
-    #currentDrawSlot {
-        font-weight: 800;
-        font-size: 1.1rem;
+    .modal.fade {
+        z-index: 99999 !important;
+    }
+
+    .modal-backdrop {
+        z-index: 99998 !important;
+        background: rgba(0, 0, 0, .7) !important;
+    }
+
+    @media(max-width:991px) {
+
+        .logo-side {
+            width: 85px;
+            min-width: 85px;
+        }
+
+        .logo-side img {
+            width: 70px;
+        }
+
+        .slot-box {
+            width: 160px;
+            min-width: 160px;
+            font-size: .9rem;
+        }
+
+        .top-nav-btn {
+            min-width: 85px;
+            font-size: .72rem;
+            padding: 2px 8px;
+        }
+
+        .top-welcome-bar {
+            font-size: .8rem;
+        }
     }
 </style>
 
-<nav class="shadow-sm" style="background: var(--bg-main); color: var(--text-light);">
-    <div class="d-flex justify-content-between align-items-center px-3">
+<nav class="main-header">
+
+    <div class="d-flex">
+
+        {{-- LEFT LOGO FOR BOTH ROWS --}}
         <a href="{{ route('dashboard') }}" class="text-decoration-none">
-            <div class="d-flex align-items-center">
-                <img src="{{ asset('build/assets/images/logo.png') }}" height="60" class="rounded me-3" alt="Rwinlot">
-                <span class="fw-bold fs-3" style="color: var(--btn-yellow);">Rwinlot</span>
+
+            <div class="logo-side">
+
+                <img src="{{ asset('build/assets/images/logo.png') }}" alt="Logo">
+
             </div>
+
         </a>
 
+        {{-- RIGHT CONTENT --}}
+        <div class="flex-grow-1">
 
-        <div class="flex-grow-1 text-center">
-            <span class="fw-bold fs-5">
-                WELCOME {{ strtoupper(Auth::user()->first_name ?? Auth::user()->name) }}
-                ( {{ Auth::user()->unique_id ?? Auth::user()->username }})
-            </span>
+            {{-- TOP SMALL ROW --}}
+            <div class="top-welcome-bar d-flex justify-content-between align-items-center">
+
+                <a href="{{ route('dashboard') }}" class="text-decoration-none text-warning fw-bold">
+
+                    <div class="text-uppercase">
+                        Rwinlot
+                    </div>
+
+                </a>
+
+                <div class="text-uppercase text-center flex-grow-1">
+                    WELCOME
+                    {{ strtoupper(Auth::user()->first_name ?? Auth::user()->name) }}
+
+                    (
+                    {{ Auth::user()->unique_id ?? Auth::user()->username }}
+                    )
+                </div>
+
+                <div class="d-flex align-items-center gap-2">
+
+                    @if (Auth::user()->role_id == 1 || Auth::user()->role_id == 2)
+                        <a href="{{ route('users.index') }}"
+                            class="btn-lotto-green btn-boxed btn btn-primary btn-sm fw-bold">+ Register User</a>
+                    @endif
+
+                    <span id="currentTime" class="text-white fw-bold">
+                    </span>
+
+                    <a href="{{ route('dashboard') }}" class="btn btn-warning btn-sm fw-bold">
+                        Back
+                    </a>
+
+                    <form method="POST" action="{{ route('logout') }}" class="m-0">
+                        @csrf
+
+                        <button class="btn btn-danger btn-sm fw-bold">
+                            Logout
+                        </button>
+                    </form>
+
+                </div>
+
+            </div>
+
+            {{-- SECOND MAIN ROW --}}
+            <div class="d-flex">
+
+                {{-- LEFT TIME BOX (2 ROW HEIGHT) --}}
+                <div class="slot-box"
+                    style="
+                        height:104px;
+                        flex-direction:column;
+                        gap:4px;
+                    ">
+
+                    <div id="currentDrawSlot">
+                        --:-- --
+                    </div>
+
+                </div>
+
+                {{-- RIGHT SIDE --}}
+                <div class="flex-grow-1 d-flex flex-column">
+
+                    {{-- TOP BUTTON ROW --}}
+                    <div class="menu-strip gap-1 flex-wrap">
+
+                        <a href="{{ route('account.index') }}" class="top-nav-btn">
+                            Accounts
+                        </a>
+
+                        <a href="{{ route('bets.cancel.page') }}" class="top-nav-btn">
+                            Cancel
+                        </a>
+
+                        <button class="top-nav-btn" data-bs-toggle="modal" data-bs-target="#passwordModal">
+                            Password
+                        </button>
+
+                        <a href="{{ route('transactions.index') }}" class="top-nav-btn">
+                            TrDetails
+                        </a>
+
+                        <a href="#" class="top-nav-btn">
+                            Reprint
+                        </a>
+
+                        <a href="{{ route('results.index') }}" class="top-nav-btn">
+                            Results
+                        </a>
+
+                        <a href="{{ route('claim.index') }}" class="top-nav-btn">
+                            Claim
+                        </a>
+
+                    </div>
+
+                    {{-- RESULT ROW --}}
+                    <div class="result-strip"
+                        style="
+                                overflow:hidden;
+                                border-top:2px solid #c78600;
+                            ">
+
+                        @php
+                            $rowColors = [
+                                '#d4e157',
+                                '#ff8a65',
+                                '#7cb342',
+                                '#ffab91',
+                                '#81c784',
+                                '#fff59d',
+                                '#f8bbd0',
+                                '#d4a017',
+                                '#3cb371',
+                                '#ffe082',
+                            ];
+                        @endphp
+
+                        @for ($i = 0; $i < 10; $i++)
+                            <div class="text-center border-end border-dark flex-grow-1"
+                                style="
+                                    background:{{ $rowColors[$i] }};
+                                    height:50px;
+                                    min-width:95px;
+                                ">
+
+                                <div id="top-res-val-{{ $i }}"
+                                    style="
+                                        font-size:2rem;
+                                        font-weight:900;
+                                        color:#000;
+                                        line-height:50px;
+                                        letter-spacing:1px;
+                                    ">
+                                    --
+                                </div>
+
+                            </div>
+                        @endfor
+
+                    </div>
+
+                </div>
+
+            </div>
+
         </div>
 
-        <div class="d-flex align-items-center gap-2">
-            @if (Auth::user()->role_id == 1 || Auth::user()->role_id == 2)
-                <a href="{{ route('users.index') }}" class="btn-lotto-green btn-boxed">+ Register User</a>
-            @endif
-            <span id="currentTime" class="fw-semibold px-2 font-monospace"></span>
-            <a href="{{ route('dashboard') }}" class="btn-lotto-yellow btn-boxed">Back</a>
-            <form method="POST" action="{{ route('logout') }}" class="m-0">
-                @csrf
-                <button class="btn-lotto-red btn-boxed">Logout</button>
-            </form>
-        </div>
     </div>
 
-    <div class="d-flex justify-content-between px-2 py-1 align-items-center" style="background: var(--bg-secondary);">
-
-        <div id="slotWrapper">
-            <span style="font-size: 0.75rem; color: #fff; text-transform: uppercase; font-weight: bold;">Result Draw
-                Slot</span>
-            <div id="currentDrawSlot">--:-- --</div>
-        </div>
-
-        <div class="d-flex gap-1">
-            <a href="{{ route('account.index') }}"
-                class="btn-lotto btn-boxed {{ request()->routeIs('account.index') ? 'active' : '' }}">
-                Accounts
-            </a>
-            <a href="{{ route('bets.cancel.page') }}"
-                class="btn-lotto btn-boxed {{ request()->routeIs('bets.cancel.page') ? 'active' : '' }}">
-                Cancel
-            </a>
-
-            <button class="btn-lotto btn-boxed {{ request()->routeIs('password.*') ? 'active' : '' }}"
-                data-bs-toggle="modal" data-bs-target="#passwordModal">
-                Password
-            </button>
-
-            <a href="{{ route('transactions.index') }}"
-                class="btn-lotto btn-boxed {{ request()->routeIs('transactions.index') ? 'active' : '' }}">
-                TrDetails
-            </a>
-
-            <a href="#" class="btn-lotto btn-boxed {{ request()->routeIs('reprint.*') ? 'active' : '' }}">
-                Reprint
-            </a>
-
-            <a href="{{ route('results.index') }}"
-                class="btn-lotto btn-boxed {{ request()->routeIs('results.index') ? 'active' : '' }}">
-                Results
-            </a>
-
-            <a href="{{ route('claim.index') }}"
-                class="btn-lotto btn-boxed {{ request()->routeIs('claim.index') ? 'active' : '' }}">
-                Claim
-            </a>
-        </div>
-    </div>
 </nav>
 
 <div class="modal fade" id="passwordModal" tabindex="-1">
@@ -218,6 +520,10 @@
     </div>
 </div>
 
+
+<script>
+    window.lastDrawResults = @json($lastResults ?? []);
+</script>
 <script>
     // 1. Get Config values from Laravel
     const DRAW_CONF = {
@@ -284,4 +590,24 @@
     // Run immediately on load
     updateTime();
     updateCurrentSlot();
+
+    function updateTopResults() {
+
+        if (!window.lastDrawResults) return;
+
+        for (let i = 0; i < 10; i++) {
+
+            const rowStart = 1000 + (i * 100);
+
+            const result = window.lastDrawResults[rowStart] ?? '--';
+
+            const topVal = document.getElementById(`top-res-val-${i}`);
+
+            if (topVal) {
+                topVal.innerText = result;
+            }
+        }
+    }
+
+    updateTopResults();
 </script>

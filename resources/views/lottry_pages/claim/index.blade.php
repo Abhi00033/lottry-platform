@@ -108,22 +108,22 @@
             <table class="table table-dark table-bordered table-hover align-middle text-center mb-0">
                 <thead style="background-color: #1e1e2e;">
                     <tr>
-                        <th class="text-warning">Sr. No.</th>
+                        {{-- <th class="text-warning">Sr. No.</th> --}}
                         <th class="text-warning">Transaction No.</th>
                         <th class="text-warning">Bet Time</th>
                         <th class="text-warning">Draw Time</th>
-                        <th class="text-warning">Number</th>
+                        {{-- <th class="text-warning">Number</th> --}}
                         <th class="text-warning">Points</th>
-                        <th class="text-success">Win Amount</th>
+                        {{-- <th class="text-success">Win Amount</th> --}}
                         <th class="text-warning">Status</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($bets as $bet)
                         <tr>
-                            <td class="text-secondary">
+                            {{-- <td class="text-secondary">
                                 {{ ($bets->currentPage() - 1) * $bets->perPage() + $loop->iteration }}
-                            </td>
+                            </td> --}}
                             <td class="fw-bold text-warning" style="font-size:0.85rem;">
                                 {{ $bet->transaction->transaction_number ?? '—' }}
                             </td>
@@ -136,13 +136,13 @@
                                 <span
                                     class="text-warning">{{ \Carbon\Carbon::parse($bet->draw_time)->format('h:i A') }}</span>
                             </td>
-                            <td class="fw-bold text-white">
+                            {{-- <td class="fw-bold text-white">
                                 {{ $bet->number }}
-                            </td>
+                            </td> --}}
                             <td class="text-info fw-bold">
                                 {{ $bet->points }}
                             </td>
-                            <td class="fw-bold">
+                            {{-- <td class="fw-bold">
                                 @if ($bet->status === 'won')
                                     @php
                                         $commissionRate = auth()->user()->commision ?? 0;
@@ -153,15 +153,19 @@
                                 @else
                                     <span class="text-secondary">—</span>
                                 @endif
-                            </td>
+                            </td> --}}
                             <td>
                                 @if ($bet->status === 'won')
                                     <span class="badge bg-success px-3 py-2">
                                         <i class="fas fa-check me-1"></i> WON
                                     </span>
-                                @else
+                                @elseif ($bet->status === 'lost')
                                     <span class="badge bg-danger px-3 py-2">
                                         <i class="fas fa-times me-1"></i> LOST
+                                    </span>
+                                @else
+                                    <span class="badge bg-warning text-dark px-3 py-2">
+                                        <i class="fas fa-clock me-1"></i> PENDING
                                     </span>
                                 @endif
                             </td>

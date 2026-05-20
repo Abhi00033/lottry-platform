@@ -1,258 +1,618 @@
 @extends('layouts.app')
 
 @section('content')
+
     <style>
-        .lotto-section-header {
-            background: var(--bg-main);
-            color: var(--text-light);
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            margin-bottom: 0.75rem;
+        .filter-card {
+            background: rgba(20, 20, 30, 0.92);
+            border-radius: 8px;
+            padding: 14px 18px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .account-wrapper {
+            background: rgba(20, 20, 30, 0.92);
+            border-radius: 8px;
+            padding: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .main-title {
             text-align: center;
-            font-size: 1.2rem;
+            font-size: 22px;
             font-weight: 700;
-            letter-spacing: .5px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, .25);
+            color: #ffd700;
+            text-decoration: underline;
+            margin-bottom: 20px;
+            letter-spacing: 0.5px;
         }
 
-        .lotto-card {
-            background: var(--bg-card-light);
-            backdrop-filter: blur(6px);
-            padding: 0.75rem 1.2rem;
-            border-radius: 6px;
-            color: var(--text-light);
-            box-shadow: 0 2px 6px rgba(0, 0, 0, .3);
-            margin-bottom: 0.75rem;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-        }
-
-        .lotto-input {
-            background: white;
-            border: 1px solid rgba(0, 0, 0, 0.25);
-            padding: .35rem .6rem;
-            font-size: .9rem;
-            border-radius: 4px;
-            min-width: 150px;
-            color: #000;
-        }
-
-        .lotto-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 0.5rem;
-        }
-
-        .lotto-table th {
-            background: #1a5c1a;
+        .section-title {
             color: #ffffff;
-            padding: .5rem .6rem;
+            font-size: 15px;
             font-weight: 700;
-            text-transform: uppercase;
-            font-size: .85rem;
-            text-align: center;
-            border: 1px solid #2d7a2d;
-        }
-
-        .lotto-table td {
-            background: #1e1e2e;
-            padding: 0.6rem .8rem;
-            text-align: center;
-            border: 1px solid #333355;
-            font-weight: 700;
-            font-size: 1.1rem;
-        }
-
-        .lotto-table td .stat-mini {
-            font-size: 0.72rem;
-            font-weight: 400;
-            color: #aaaaaa;
-            margin-top: 2px;
-        }
-
-        .lotto-table tr:hover td {
-            background: #252540;
-        }
-
-        .print-btn {
-            margin: 0.5rem auto;
-            display: block;
+            margin-top: 20px;
+            margin-bottom: 12px;
         }
 
         .report-title {
-            font-size: 0.95rem;
-            font-weight: 700;
+            text-align: center;
             color: #ffd700;
-            margin-bottom: 0.3rem;
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .summary-table {
+            width: 100%;
+            max-width: 520px;
+            margin: auto;
+            margin-bottom: 28px;
+            border-collapse: collapse;
+            background: #1e1e2f;
+        }
+
+        .summary-table th {
+            background: #146c43;
+            color: #fff;
+            border: 1px solid #2e8b57;
+            padding: 7px;
+            font-size: 13px;
             text-align: center;
         }
 
+        .summary-table td {
+            border: 1px solid #444;
+            padding: 7px;
+            color: #fff;
+            font-size: 13px;
+            text-align: center;
+            background: #25253a;
+        }
+
+        .summary-table tr:hover td {
+            background: #2f2f48;
+        }
+
+        .positive-net {
+            color: #4caf50 !important;
+            font-weight: 700;
+        }
+
+        .negative-net {
+            color: #ff5252 !important;
+            font-weight: 700;
+        }
+
+        .custom-input {
+            height: 40px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            padding: 6px 10px;
+            font-size: 14px;
+        }
+
+        .compact-btn {
+            height: 40px;
+            padding: 0 16px;
+            font-size: 14px;
+            font-weight: 600;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            line-height: 1;
+        }
+
+        .top-stats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .mini-stat {
+            background: rgba(255, 255, 255, 0.06);
+            color: #fff;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .mini-stat strong {
+            color: #ffd700;
+        }
+
+        .form-label {
+            color: #fff;
+            font-size: 13px;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .filter-row {
+            align-items: end;
+        }
+
+        .section-box {
+            padding: 18px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+        }
+
+        .positive-section {
+            border: 1px solid rgba(76, 175, 80, 0.25);
+            background: rgba(76, 175, 80, 0.04);
+        }
+
+        .negative-section {
+            border: 1px solid rgba(255, 82, 82, 0.25);
+            background: rgba(255, 82, 82, 0.04);
+        }
+
+        .section-heading {
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .positive-heading {
+            color: #4caf50;
+        }
+
+        .negative-heading {
+            color: #ff5252;
+        }
+
+        .report-card {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 15px;
+            border-radius: 10px;
+            height: 100%;
+        }
+
+        .summary-table {
+            max-width: 100% !important;
+            margin-bottom: 0 !important;
+        }
+
+        .report-title {
+            font-size: 20px;
+            margin-bottom: 15px;
+        }
+
+        @media (max-width: 768px) {
+
+            .summary-table {
+                max-width: 100%;
+            }
+
+            .main-title {
+                font-size: 18px;
+            }
+
+            .section-title {
+                font-size: 14px;
+            }
+
+            .report-title {
+                font-size: 14px;
+            }
+
+            .compact-btn {
+                width: 100%;
+                margin-top: 5px;
+            }
+
+            .top-stats {
+                flex-direction: column;
+            }
+        }
+
         @media print {
+
+            body {
+                background: #fff !important;
+            }
+
             .no-print {
                 display: none !important;
             }
 
-            .lotto-card {
-                box-shadow: none;
-                border: 1px solid #ccc;
+            .filter-card {
+                display: none !important;
             }
 
-            .lotto-table td {
+            .account-wrapper {
                 background: #fff !important;
-                color: #000 !important;
+                box-shadow: none;
+                border: none;
+                padding: 0;
             }
 
-            .lotto-table th {
+            .summary-table {
+                background: #fff !important;
+            }
+
+            .summary-table th {
                 background: #333 !important;
                 color: #fff !important;
+            }
+
+            .summary-table td {
+                background: #fff !important;
+                color: #000 !important;
+                border: 1px solid #000 !important;
+            }
+
+            .main-title,
+            .section-title,
+            .report-title {
+                color: #000 !important;
             }
         }
     </style>
 
-    <div class="container py-2">
+    <div class="container py-3">
 
-        {{-- ===== Page Header ===== --}}
-        <div class="lotto-section-header">
-            ACCOUNTS REPORT
-        </div>
+        {{-- FILTER SECTION --}}
+        <div class="filter-card no-print">
 
-        {{-- ===== Filter + User Info in one row ===== --}}
-        <div class="lotto-card no-print">
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <form action="{{ route('account.index') }}" method="GET">
 
-                {{-- Filter Form --}}
-                <form action="{{ route('account.index') }}" method="GET" class="d-flex flex-wrap align-items-center gap-2">
+                <div class="row g-2 filter-row">
 
-                    <label class="fw-bold text-warning mb-0 small">From:</label>
-                    <input type="date" name="date_from" class="lotto-input" value="{{ $dateFrom }}"
-                        max="{{ \Carbon\Carbon::today()->format('Y-m-d') }}">
+                    <div class="col-md-3">
+                        <label class="form-label">From Date</label>
 
-                    <label class="fw-bold text-warning mb-0 small">To:</label>
-                    <input type="date" name="date_to" class="lotto-input" value="{{ $dateTo }}"
-                        max="{{ \Carbon\Carbon::today()->format('Y-m-d') }}">
+                        <input type="date" name="date_from" class="form-control custom-input" value="{{ $dateFrom }}"
+                            max="{{ \Carbon\Carbon::today()->format('Y-m-d') }}">
+                    </div>
 
-                    <button type="submit" class="btn-lotto-yellow btn-boxed">
-                        <i class="fas fa-search me-1"></i> Show
-                    </button>
+                    <div class="col-md-3">
+                        <label class="form-label">To Date</label>
 
-                    @if ($dateFrom !== \Carbon\Carbon::today()->format('Y-m-d') || $dateTo !== \Carbon\Carbon::today()->format('Y-m-d'))
-                        <a href="{{ route('account.index') }}" class="btn btn-outline-danger btn-sm">
-                            <i class="fas fa-sync-alt me-1"></i> Reset
+                        <input type="date" name="date_to" class="form-control custom-input" value="{{ $dateTo }}"
+                            max="{{ \Carbon\Carbon::today()->format('Y-m-d') }}">
+                    </div>
+
+                    <div class="col-md-6 d-flex gap-2">
+
+                        <button type="submit" class="btn btn-primary compact-btn">
+                            Show Report
+                        </button>
+
+                        <a href="{{ route('account.index') }}" class="btn btn-danger compact-btn">
+                            Reset
                         </a>
-                    @endif
-                </form>
 
-                {{-- User Info inline --}}
-                <div class="d-flex flex-wrap gap-3 align-items-center">
-                    <div class="small">
-                        <span class="text-white-50">User:</span>
-                        <strong class="text-warning ms-1">{{ auth()->user()->username }}</strong>
+                        <button type="button" onclick="window.print()" class="btn btn-success compact-btn">
+                            Print
+                        </button>
+
                     </div>
-                    <div class="small">
-                        <span class="text-white-50">Commission:</span>
-                        <strong class="text-warning ms-1">{{ $commissionRate }}%</strong>
-                    </div>
-                    <div class="small">
-                        <span class="text-white-50">Multiplier:</span>
-                        <strong class="text-warning ms-1">{{ $netMultiplier }}x</strong>
-                    </div>
-                    <div class="small">
-                        <span class="text-white-50">Balance:</span>
-                        <strong class="text-success ms-1">₹{{ number_format(auth()->user()->balance, 2) }}</strong>
-                    </div>
+
+                </div>
+
+            </form>
+
+            <hr style="border-color: rgba(255,255,255,0.1);">
+
+            <div class="top-stats">
+
+                <div class="mini-stat">
+                    <strong>User:</strong>
+                    {{ auth()->user()->username }}
+                </div>
+
+                <div class="mini-stat">
+                    <strong>Commission:</strong>
+                    {{ $commissionRate }}%
+                </div>
+
+                <div class="mini-stat">
+                    <strong>Total Bets:</strong>
+                    {{ $totalBets }}
+                </div>
+
+                <div class="mini-stat">
+                    <strong>Won:</strong>
+                    {{ $wonBets }}
+                </div>
+
+                <div class="mini-stat">
+                    <strong>Lost:</strong>
+                    {{ $lostBets }}
+                </div>
+
+                <div class="mini-stat">
+                    <strong>Pending:</strong>
+                    {{ $pendingBets }}
                 </div>
 
             </div>
 
-            {{-- Range + counts --}}
-            <div class="mt-1">
-                <small class="text-white-50">
-                    Showing:
-                    <strong class="text-warning">{{ \Carbon\Carbon::parse($dateFrom)->format('d M Y') }}</strong>
-                    to
-                    <strong class="text-warning">{{ \Carbon\Carbon::parse($dateTo)->format('d M Y') }}</strong>
-                    &nbsp;|&nbsp; Total: <strong class="text-warning">{{ $totalBets }}</strong>
-                    &nbsp;|&nbsp; <span class="text-info fw-bold">Active/Pending: {{ $pendingBets }}
-                        ({{ $pendingPoints }} pts)</span>
-                    &nbsp;|&nbsp; <span class="text-success fw-bold">Won: {{ $wonBets }}</span>
-                    &nbsp;|&nbsp; <span class="text-danger fw-bold">Lost: {{ $lostBets }}</span>
-                </small>
+        </div>
+
+        {{-- MAIN REPORT --}}
+        <div class="account-wrapper">
+
+            <h4 class="main-title">
+                Account Summary
+            </h4>
+
+            {{-- POSITIVE SECTION --}}
+            <div class="section-box positive-section">
+
+                <div class="section-heading positive-heading">
+                    <i class="fas fa-arrow-up me-2"></i>
+                    Account Positive (+)
+                </div>
+
+                @if (count($positiveReports))
+                    <div class="row g-4 mt-1">
+
+                        {{-- REPORT 1 --}}
+                        @if (isset($positiveReports['report1']))
+                            <div class="col-lg-6">
+
+                                <div class="report-card">
+
+                                    <div class="report-title">
+                                        Report – 1
+                                    </div>
+
+                                    <table class="summary-table">
+
+                                        <tr>
+                                            <th>Label</th>
+                                            <th>Description</th>
+                                            <th>Amount</th>
+                                        </tr>
+
+                                        <tr>
+                                            <td>A</td>
+                                            <td>Play Point</td>
+                                            <td>
+                                                {{ number_format($positiveReports['report1']['play_point'], 2) }}
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td>B</td>
+                                            <td>Commission</td>
+                                            <td>
+                                                {{ number_format($positiveReports['report1']['commission'], 2) }}
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td>C</td>
+                                            <td>Win Point</td>
+                                            <td>
+                                                {{ number_format($positiveReports['report1']['win_point'], 2) }}
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td>D</td>
+                                            <td><strong>Net</strong></td>
+
+                                            <td
+                                                class="{{ $positiveReports['report1']['net'] >= 0 ? 'positive-net' : 'negative-net' }}">
+                                                {{ number_format($positiveReports['report1']['net'], 2) }}
+                                            </td>
+                                        </tr>
+
+                                    </table>
+
+                                </div>
+
+                            </div>
+                        @endif
+
+
+
+                        {{-- REPORT 2 --}}
+                        @if (isset($positiveReports['report2']))
+                            <div class="col-lg-6">
+
+                                <div class="report-card">
+
+                                    <div class="report-title">
+                                        Report – 2
+                                    </div>
+
+                                    <table class="summary-table">
+
+                                        <tr>
+                                            <th>Label</th>
+                                            <th>Description</th>
+                                            <th>Amount</th>
+                                        </tr>
+
+                                        <tr>
+                                            <td>A</td>
+                                            <td>Play Point</td>
+                                            <td>
+                                                {{ number_format($positiveReports['report2']['play_point'], 2) }}
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td>B</td>
+                                            <td>Win Point</td>
+                                            <td>
+                                                {{ number_format($positiveReports['report2']['win_point'], 2) }}
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td>C</td>
+                                            <td><strong>Net</strong></td>
+
+                                            <td
+                                                class="{{ $positiveReports['report2']['net'] >= 0 ? 'positive-net' : 'negative-net' }}">
+                                                {{ number_format($positiveReports['report2']['net'], 2) }}
+                                            </td>
+                                        </tr>
+
+                                    </table>
+
+                                </div>
+
+                            </div>
+                        @endif
+
+                    </div>
+                @else
+                    <div class="text-center text-light py-4">
+                        No Positive Reports Found
+                    </div>
+                @endif
+
             </div>
-        </div>
 
-        {{-- ===== Report 1 — Points Summary ===== --}}
-        <div class="lotto-card">
-            <div class="report-title">Report 1 — Points Summary</div>
 
-            <table class="lotto-table">
-                <thead>
-                    <tr>
-                        <th>Play Points</th>
-                        <th>Commission ({{ $commissionRate }}%)</th>
-                        <th>Win Points</th>
-                        <th>Net (Play - Win)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>
-                            <span style="color:#4fc3f7; font-size:1.2rem;">{{ number_format($totalPlayPoints, 2) }}</span>
-                            <div class="stat-mini">Total points bet</div>
-                        </td>
-                        <td>
-                            <span style="color:#ffd54f; font-size:1.2rem;">{{ number_format($totalCommission, 2) }}</span>
-                            <div class="stat-mini">Deducted from play</div>
-                        </td>
-                        <td>
-                            <span style="color:#81c784; font-size:1.2rem;">{{ number_format($totalWin, 2) }}</span>
-                            <div class="stat-mini">Won × {{ $netMultiplier }}x</div>
-                        </td>
-                        <td>
-                            <span style="color:{{ $netFirst >= 0 ? '#ef5350' : '#81c784' }}; font-size:1.2rem;">
-                                {{ number_format($netFirst, 2) }}
-                            </span>
-                            <div class="stat-mini">{{ $netFirst >= 0 ? 'House profit' : 'User profit' }}</div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
 
-            <button class="btn-lotto-green btn-boxed print-btn no-print" onclick="window.print()">
-                <i class="fas fa-print me-1"></i> Print Report
-            </button>
-        </div>
+            {{-- NEGATIVE SECTION --}}
+            <div class="section-box negative-section mt-4">
 
-        {{-- ===== Report 2 — Amount Summary ===== --}}
-        <div class="lotto-card">
-            <div class="report-title">Report 2 — Amount Summary (₹)</div>
+                <div class="section-heading negative-heading">
+                    <i class="fas fa-arrow-down me-2"></i>
+                    Account Negative (-)
+                </div>
 
-            <table class="lotto-table">
-                <thead>
-                    <tr>
-                        <th>Total Play (₹)</th>
-                        <th>Total Win (₹)</th>
-                        <th>Net (₹)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>
-                            <span style="color:#4fc3f7; font-size:1.2rem;">₹{{ number_format($totalPlay, 2) }}</span>
-                            <div class="stat-mini">Total amount wagered</div>
-                        </td>
-                        <td>
-                            <span style="color:#81c784; font-size:1.2rem;">₹{{ number_format($totalWinAmount, 2) }}</span>
-                            <div class="stat-mini">Total amount won</div>
-                        </td>
-                        <td>
-                            <span style="color:{{ $netSecond >= 0 ? '#ef5350' : '#81c784' }}; font-size:1.2rem;">
-                                ₹{{ number_format($netSecond, 2) }}
-                            </span>
-                            <div class="stat-mini">{{ $netSecond >= 0 ? 'House profit' : 'User profit' }}</div>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                @if (count($negativeReports))
+                    <div class="row g-4 mt-1">
+
+                        {{-- REPORT 1 --}}
+                        @if (isset($negativeReports['report1']))
+                            <div class="col-lg-6">
+
+                                <div class="report-card">
+
+                                    <div class="report-title">
+                                        Report – 1
+                                    </div>
+
+                                    <table class="summary-table">
+
+                                        <tr>
+                                            <th>Label</th>
+                                            <th>Description</th>
+                                            <th>Amount</th>
+                                        </tr>
+
+                                        <tr>
+                                            <td>A</td>
+                                            <td>Play Point</td>
+                                            <td>
+                                                {{ number_format($negativeReports['report1']['play_point'], 2) }}
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td>B</td>
+                                            <td>Commission</td>
+                                            <td>
+                                                {{ number_format($negativeReports['report1']['commission'], 2) }}
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td>C</td>
+                                            <td>Win Point</td>
+                                            <td>
+                                                {{ number_format($negativeReports['report1']['win_point'], 2) }}
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td>D</td>
+                                            <td><strong>Net</strong></td>
+
+                                            <td
+                                                class="{{ $negativeReports['report1']['net'] >= 0 ? 'positive-net' : 'negative-net' }}">
+                                                {{ number_format($negativeReports['report1']['net'], 2) }}
+                                            </td>
+
+                                        </tr>
+
+                                    </table>
+
+                                </div>
+
+                            </div>
+                        @endif
+
+
+
+                        {{-- REPORT 2 --}}
+                        @if (isset($negativeReports['report2']))
+                            <div class="col-lg-6">
+
+                                <div class="report-card">
+
+                                    <div class="report-title">
+                                        Report – 2
+                                    </div>
+
+                                    <table class="summary-table">
+
+                                        <tr>
+                                            <th>Label</th>
+                                            <th>Description</th>
+                                            <th>Amount</th>
+                                        </tr>
+
+                                        <tr>
+                                            <td>A</td>
+                                            <td>Play Point</td>
+                                            <td>
+                                                {{ number_format($negativeReports['report2']['play_point'], 2) }}
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td>B</td>
+                                            <td>Win Point</td>
+                                            <td>
+                                                {{ number_format($negativeReports['report2']['win_point'], 2) }}
+                                            </td>
+                                        </tr>
+
+                                        <tr>
+                                            <td>C</td>
+                                            <td><strong>Net</strong></td>
+
+                                            <td
+                                                class="{{ $negativeReports['report2']['net'] >= 0 ? 'positive-net' : 'negative-net' }}">
+                                                {{ number_format($negativeReports['report2']['net'], 2) }}
+                                            </td>
+                                        </tr>
+
+                                    </table>
+
+                                </div>
+
+                            </div>
+                        @endif
+
+                    </div>
+                @else
+                    <div class="text-center text-light py-4">
+                        No Negative Reports Found
+                    </div>
+                @endif
+
+            </div>
+
         </div>
 
     </div>
+
 @endsection
