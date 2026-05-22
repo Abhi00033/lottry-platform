@@ -591,13 +591,13 @@
     updateTime();
     updateCurrentSlot();
 
-    function updateTopResults() {
+    function updateTopResults(baseSeries = 1000) {
 
         if (!window.lastDrawResults) return;
 
         for (let i = 0; i < 10; i++) {
 
-            const rowStart = 1000 + (i * 100);
+            const rowStart = baseSeries + (i * 100);
 
             const result = window.lastDrawResults[rowStart] ?? '--';
 

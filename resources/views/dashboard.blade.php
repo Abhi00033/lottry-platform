@@ -1034,45 +1034,95 @@
                 });
             });
 
+            //    seriesCheckboxes.forEach(cb => {
+            //         cb.addEventListener('change', () => {
+            //             filterRadios.forEach(r => r.checked = false);
+
+            //             if (cb.checked) {
+            //                 // User checked a series → switch view to it
+            //                 currentBaseSeries = parseInt(cb.value, 10);
+            //                 activeSeriesRow = 0;
+            //                 updateView();
+            //                 updateTopResults(currentBaseSeries);
+            //             } else {
+            //                 // User unchecked a series → auto-switch to first remaining checked series
+            //                 const allChecked = [...document.querySelectorAll('.series-select:checked')];
+            //                 const highestRemaining = allChecked.length > 0 ?
+            //                     allChecked.reduce((max, cb) => parseInt(cb.value) > parseInt(max
+            //                         .value) ? cb : max) :
+            //                     null;
+
+            //                 if (highestRemaining) {
+            //                     currentBaseSeries = parseInt(highestRemaining.value, 10);
+            //                     activeSeriesRow = 0;
+            //                     updateView();
+            //                     updateTopResults(currentBaseSeries);
+            //                 } else {
+            //                     // No series checked at all → auto-check and switch back to first series (1000)
+            //                     const firstSeries = document.querySelector('.series-select');
+            //                     if (firstSeries) {
+            //                         firstSeries.checked = true;
+            //                         currentBaseSeries = parseInt(firstSeries.value, 10);
+            //                         activeSeriesRow = 0;
+            //                         updateView();
+            //                         updateTopResults(currentBaseSeries);
+            //                     }
+            //                 }
+            //             }
+
+            //             document.dispatchEvent(new Event('recalculateGridStats'));
+            //         });
+            //     });
+
             seriesCheckboxes.forEach(cb => {
+
                 cb.addEventListener('change', () => {
+
                     filterRadios.forEach(r => r.checked = false);
 
-                    if (cb.checked) {
-                        // User checked a series → switch view to it
-                        currentBaseSeries = parseInt(cb.value, 10);
-                        activeSeriesRow = 0;
-                        updateView();
-                    } else {
-                        // User unchecked a series → auto-switch to first remaining checked series
-                        const allChecked = [...document.querySelectorAll('.series-select:checked')];
-                        const highestRemaining = allChecked.length > 0 ?
-                            allChecked.reduce((max, cb) => parseInt(cb.value) > parseInt(max
-                                .value) ? cb : max) :
-                            null;
+                    // GET ALL CHECKED SERIES
+                    const checkedSeries = [...document.querySelectorAll('.series-select:checked')];
 
-                        if (highestRemaining) {
-                            currentBaseSeries = parseInt(highestRemaining.value, 10);
-                            activeSeriesRow = 0;
-                            updateView();
-                        } else {
-                            // No series checked at all → auto-check and switch back to first series (1000)
-                            const firstSeries = document.querySelector('.series-select');
-                            if (firstSeries) {
-                                firstSeries.checked = true;
-                                currentBaseSeries = parseInt(firstSeries.value, 10);
-                                activeSeriesRow = 0;
-                                updateView();
-                            }
+                    // IF NOTHING SELECTED
+                    if (checkedSeries.length === 0) {
+
+                        const firstSeries = document.querySelector('.series-select');
+
+                        if (firstSeries) {
+
+                            firstSeries.checked = true;
+
+                            currentBaseSeries = parseInt(firstSeries.value, 10);
                         }
+
+                    } else {
+
+                        // ALWAYS PICK HIGHEST SERIES
+                        const highestSeries = checkedSeries.reduce((max, current) => {
+
+                            return parseInt(current.value) > parseInt(max.value) ?
+                                current :
+                                max;
+
+                        });
+
+                        currentBaseSeries = parseInt(highestSeries.value, 10);
                     }
 
+                    activeSeriesRow = 0;
+
+                    updateView();
+
+                    updateTopResults(currentBaseSeries);
+
                     document.dispatchEvent(new Event('recalculateGridStats'));
+
                 });
+
             });
 
             //    UPDATE VIEW (CORE) - FIXED LOGIC HERE added in navigation page
-            // const lastDrawResults = @json($lastResults);
+            const lastDrawResults = @json($lastResults);
 
             function updateView() {
                 const baseSeries = currentBaseSeries ?? 1000;
@@ -1192,6 +1242,7 @@
                 if (activeSeriesRow < 9) {
                     activeSeriesRow++;
                     updateView();
+                    updateTopResults(currentBaseSeries);
                 }
             };
 
@@ -1199,6 +1250,7 @@
                 if (activeSeriesRow > 0) {
                     activeSeriesRow--;
                     updateView();
+                    updateTopResults(currentBaseSeries);
                 }
             };
 
@@ -1209,6 +1261,7 @@
                 document.querySelectorAll('.row-selector')
                     .forEach(cb => cb.checked = this.checked);
                 updateView();
+                updateTopResults(currentBaseSeries);
                 document.dispatchEvent(new Event('recalculateGridStats'));
             };
 
@@ -1223,6 +1276,7 @@
                     // Instead of manually setting text, we call updateView()
                     // This ensures High/Low logic is applied correctly with the new value
                     updateView();
+                    updateTopResults(currentBaseSeries);
                     // Also trigger stats recalc so the Bottom Total Points updates immediately
                     document.dispatchEvent(new Event('recalculateGridStats'));
                 };
@@ -1292,6 +1346,7 @@
                 amtColumn.style.display = 'none';
                 allRowsCB.checked = false;
                 updateView();
+                updateTopResults(currentBaseSeries);
             };
 
             btnLow.onclick = () => {
@@ -1301,6 +1356,7 @@
                 allRowsCB.checked = false;
                 resetGridAndStats();
                 updateView();
+                updateTopResults(currentBaseSeries);
             };
 
             /* =====================================================
@@ -1604,8 +1660,8 @@
             }
 
             /* =====================================================
-           FULL GRID + MASTER INPUT NAVIGATION
-        ===================================================== */
+               FULL GRID + MASTER INPUT NAVIGATION
+            ===================================================== */
 
             function focusInput(selector) {
 
@@ -1777,6 +1833,7 @@
 
             // INITIAL LOAD
             updateView();
+            updateTopResults(currentBaseSeries);
             updateAllStats();
         });
 
