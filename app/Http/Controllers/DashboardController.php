@@ -16,7 +16,13 @@ class DashboardController extends Controller
         $series_master = SeriesMaster::all();
 
         // 2. Fetch the very last transaction for this specific user
+        // $lastTransaction = UserBalanceTransaction::where('user_id', $user->id)
+        //     ->latest('id')
+        //     ->first();
+
         $lastTransaction = UserBalanceTransaction::where('user_id', $user->id)
+            ->where('type', 'debit')
+            ->whereDate('created_at', today())
             ->latest('id')
             ->first();
 

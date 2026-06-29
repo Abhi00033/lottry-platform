@@ -5,197 +5,281 @@
 
         {{-- ===== Header ===== --}}
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-            <h3 class="fw-bold text-warning m-0">
-                <i class="fas fa-trophy me-2"></i> Claim / Results
-            </h3>
-            <span class="badge bg-dark border border-warning p-2" style="font-size: 1rem;">
-                My Balance: <span class="text-warning">₹{{ number_format(auth()->user()->balance, 2) }}</span>
-            </span>
-        </div>
 
-        {{-- ===== Filter Bar ===== --}}
-        <div class="card bg-dark border-secondary mb-3 px-3 py-2">
-            <form action="{{ route('claim.index') }}" method="GET" id="claimFilterForm">
-                <div class="row g-2 align-items-end">
+            <h4 class="fw-bold text-warning m-0">
+                <i class="fas fa-trophy me-2"></i>
+                Claim / Results
+            </h4>
 
-                    {{-- Date Filter --}}
-                    <div class="col-md-4 col-sm-12">
-                        <label class="text-white-50 small mb-1">
-                            <i class="fas fa-calendar-alt me-1 text-warning"></i> Draw Date
-                        </label>
-                        <input type="date" name="date"
-                            class="form-control form-control-sm bg-dark text-white border-secondary"
-                            style="color-scheme: dark;" value="{{ $selectedDate }}"
-                            max="{{ \Carbon\Carbon::today()->format('Y-m-d') }}"
-                            onchange="document.getElementById('claimFilterForm').submit()">
-                    </div>
+            <div class="badge bg-dark border border-warning px-3 py-2">
 
-                    {{-- Status Filter --}}
-                    <div class="col-md-3 col-sm-6">
-                        <label class="text-white-50 small mb-1">
-                            <i class="fas fa-filter me-1 text-warning"></i> Status
-                        </label>
-                        <select name="status" class="form-select form-select-sm bg-dark text-white border-secondary"
-                            onchange="document.getElementById('claimFilterForm').submit()">
-                            <option value="" {{ $statusFilter === '' ? 'selected' : '' }}>All Results</option>
-                            <option value="won" {{ $statusFilter === 'won' ? 'selected' : '' }}>Won Only</option>
-                            <option value="lost" {{ $statusFilter === 'lost' ? 'selected' : '' }}>Lost Only</option>
-                        </select>
-                    </div>
+                Balance:
+                <span class="text-warning fw-bold">
 
-                    {{-- Buttons --}}
-                    <div class="col-md-5 col-sm-6 d-flex gap-2 align-items-end">
-                        <button type="submit" class="btn btn-warning btn-sm fw-bold px-3">
-                            <i class="fas fa-search me-1"></i> Filter
-                        </button>
-                        @if ($selectedDate !== \Carbon\Carbon::today()->format('Y-m-d') || $statusFilter !== '')
-                            <a href="{{ route('claim.index') }}" class="btn btn-outline-danger btn-sm px-3">
-                                <i class="fas fa-sync-alt me-1"></i> Reset
-                            </a>
-                        @endif
-                    </div>
+                    ₹{{ number_format(auth()->user()->balance, 2) }}
 
-                </div>
-            </form>
+                </span>
 
-            {{-- Showing date info --}}
-            <div class="mt-2 d-flex align-items-center gap-3">
-                <small class="text-white-50">
-                    Showing:
-                    <strong class="text-warning">{{ \Carbon\Carbon::parse($selectedDate)->format('d M Y') }}</strong>
-                </small>
-                @if ($statusFilter)
-                    <span class="badge {{ $statusFilter === 'won' ? 'bg-success' : 'bg-danger' }}">
-                        {{ ucfirst($statusFilter) }} Only
-                    </span>
-                @endif
-                <small class="text-white-50">
-                    Total: <strong class="text-warning">{{ $bets->total() }}</strong> records
-                </small>
             </div>
-        </div>
 
-        {{-- ===== Summary Cards ===== --}}
-        @php
-            $wonCount = $bets->getCollection()->where('status', 'won')->count();
-            $lostCount = $bets->getCollection()->where('status', 'lost')->count();
-            $totalWon = $bets->getCollection()->where('status', 'won')->sum('total_amount');
-        @endphp
-
-        <div class="row g-2 mb-3">
-            <div class="col-4">
-                <div class="card bg-dark border-success text-center py-2">
-                    <div class="text-success fw-bold" style="font-size:1.3rem;">{{ $wonCount }}</div>
-                    <small class="text-white-50">Won (this page)</small>
-                </div>
-            </div>
-            <div class="col-4">
-                <div class="card bg-dark border-danger text-center py-2">
-                    <div class="text-danger fw-bold" style="font-size:1.3rem;">{{ $lostCount }}</div>
-                    <small class="text-white-50">Lost (this page)</small>
-                </div>
-            </div>
-            <div class="col-4">
-                <div class="card bg-dark border-warning text-center py-2">
-                    <div class="text-warning fw-bold" style="font-size:1.3rem;">₹{{ number_format($totalWon, 2) }}</div>
-                    <small class="text-white-50">Won Amount (this page)</small>
-                </div>
-            </div>
         </div>
 
         {{-- ===== Table ===== --}}
-        <div class="table-responsive">
-            <table class="table table-dark table-bordered table-hover align-middle text-center mb-0">
-                <thead style="background-color: #1e1e2e;">
-                    <tr>
-                        {{-- <th class="text-warning">Sr. No.</th> --}}
-                        <th class="text-warning">Transaction No.</th>
-                        <th class="text-warning">Bet Time</th>
-                        <th class="text-warning">Draw Time</th>
-                        {{-- <th class="text-warning">Number</th> --}}
-                        <th class="text-warning">Points</th>
-                        {{-- <th class="text-success">Win Amount</th> --}}
-                        <th class="text-warning">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($bets as $bet)
-                        <tr>
-                            {{-- <td class="text-secondary">
-                                {{ ($bets->currentPage() - 1) * $bets->perPage() + $loop->iteration }}
-                            </td> --}}
-                            <td class="fw-bold text-warning" style="font-size:0.85rem;">
-                                {{ $bet->transaction->transaction_number ?? '—' }}
-                            </td>
-                            <td class="text-white-50" style="font-size:0.85rem;">
-                                {{ $bet->created_at->format('d M Y') }}<br>
-                                <span class="text-warning">{{ $bet->created_at->format('h:i A') }}</span>
-                            </td>
-                            <td class="text-white-50" style="font-size:0.85rem;">
-                                {{ \Carbon\Carbon::parse($bet->draw_time)->format('d M Y') }}<br>
-                                <span
-                                    class="text-warning">{{ \Carbon\Carbon::parse($bet->draw_time)->format('h:i A') }}</span>
-                            </td>
-                            {{-- <td class="fw-bold text-white">
-                                {{ $bet->number }}
-                            </td> --}}
-                            <td class="text-info fw-bold">
-                                {{ $bet->points }}
-                            </td>
-                            {{-- <td class="fw-bold">
-                                @if ($bet->status === 'won')
-                                    @php
-                                        $commissionRate = auth()->user()->commision ?? 0;
-                                        $netMultiplier = 100 - $commissionRate;
-                                        $winAmt = $bet->points * $netMultiplier;
-                                    @endphp
-                                    <span class="text-success">₹{{ number_format($winAmt, 2) }}</span>
-                                @else
-                                    <span class="text-secondary">—</span>
-                                @endif
-                            </td> --}}
-                            <td>
-                                @if ($bet->status === 'won')
-                                    <span class="badge bg-success px-3 py-2">
-                                        <i class="fas fa-check me-1"></i> WON
-                                    </span>
-                                @elseif ($bet->status === 'lost')
-                                    <span class="badge bg-danger px-3 py-2">
-                                        <i class="fas fa-times me-1"></i> LOST
-                                    </span>
-                                @else
-                                    <span class="badge bg-warning text-dark px-3 py-2">
-                                        <i class="fas fa-clock me-1"></i> PENDING
-                                    </span>
-                                @endif
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="8" class="text-center py-5">
-                                <i class="fas fa-inbox fa-2x mb-2 d-block text-secondary"></i>
-                                <span class="text-secondary">
-                                    No results found for
-                                    <strong class="text-warning">
-                                        {{ \Carbon\Carbon::parse($selectedDate)->format('d M Y') }}
-                                    </strong>
-                                    @if ($statusFilter)
-                                        with status <strong class="text-warning">{{ ucfirst($statusFilter) }}</strong>
-                                    @endif
-                                </span>
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+        <div class="card bg-dark border-secondary shadow-sm">
 
-        {{-- ===== Pagination ===== --}}
-        @if ($bets->hasPages())
-            <div class="mt-3 d-flex justify-content-end">
-                {{ $bets->links() }}
+            <div class="table-responsive">
+
+                <table class="table table-dark table-hover align-middle text-center mb-0">
+
+                    <thead class="border-secondary">
+
+                        <tr>
+
+                            <th class="text-warning">
+                                Transaction
+                            </th>
+
+                            <th class="text-warning">
+                                Draw Time
+                            </th>
+
+                            <th class="text-warning">
+                                Points
+                            </th>
+
+                            <th class="text-warning">
+                                Win
+                            </th>
+
+                            <th class="text-warning">
+                                Status
+                            </th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                        @forelse ($transactions as $transaction)
+                            <tr>
+
+                                {{-- Transaction --}}
+                                <td class="fw-bold text-warning">
+
+                                    {{ $transaction->transaction_number }}
+
+                                </td>
+
+                                {{-- Draw --}}
+                                <td class="text-white-50 small">
+
+                                    {{ \Carbon\Carbon::parse($transaction->draw_time)->format('d M Y') }}
+
+                                    <br>
+
+                                    <span class="text-warning">
+
+                                        {{ \Carbon\Carbon::parse($transaction->draw_time)->format('h:i A') }}
+
+                                    </span>
+
+                                </td>
+
+                                {{-- Points --}}
+                                <td class="fw-bold text-info">
+
+                                    {{ $transaction->total_points }}
+
+                                </td>
+
+                                {{-- Win --}}
+                                <td>
+
+                                    @if ($transaction->total_win > 0)
+                                        <span class="text-success fw-bold">
+
+                                            ₹{{ number_format($transaction->total_win, 2) }}
+
+                                        </span>
+                                    @else
+                                        <span class="text-secondary">
+
+                                            —
+
+                                        </span>
+                                    @endif
+
+                                </td>
+
+                                {{-- Status --}}
+                                <td>
+
+                                    <button type="button"
+                                        class="btn btn-sm fw-bold px-3
+                                    {{ $transaction->status == 'won'
+                                        ? 'btn-success'
+                                        : ($transaction->status == 'pending'
+                                            ? 'btn-warning text-dark'
+                                            : 'btn-danger') }}"
+                                        data-bs-toggle="modal" data-bs-target="#transactionModal{{ $loop->index }}">
+
+                                        {{ strtoupper($transaction->status) }}
+
+                                    </button>
+
+                                </td>
+
+                            </tr>
+
+                            {{-- ===== Modal ===== --}}
+                            <div class="modal fade" id="transactionModal{{ $loop->index }}" tabindex="-1">
+
+                                <div class="modal-dialog modal-dialog-centered">
+
+                                    <div class="modal-content bg-dark border-secondary rounded-4 text-white">
+
+                                        {{-- Header --}}
+                                        <div class="modal-header border-secondary">
+
+                                            <h5 class="modal-title text-warning fw-bold">
+
+                                                Transaction Details
+
+                                            </h5>
+
+                                            <button type="button" class="btn-close btn-close-white"
+                                                data-bs-dismiss="modal"></button>
+
+                                        </div>
+
+                                        {{-- Body --}}
+                                        <div class="modal-body px-4 py-4">
+
+                                            <div class="d-flex flex-column gap-3">
+
+                                                {{-- Transaction --}}
+                                                <div class="d-flex justify-content-between">
+
+                                                    <span class="text-white-50">
+
+                                                        Transaction
+
+                                                    </span>
+
+                                                    <span class="fw-bold text-warning">
+
+                                                        {{ $transaction->transaction_number }}
+
+                                                    </span>
+
+                                                </div>
+
+                                                {{-- Draw Time --}}
+                                                <div class="d-flex justify-content-between">
+
+                                                    <span class="text-white-50">
+
+                                                        Draw Time
+
+                                                    </span>
+
+                                                    <span class="fw-bold text-info">
+
+                                                        {{ \Carbon\Carbon::parse($transaction->draw_time)->format('d M Y h:i A') }}
+
+                                                    </span>
+
+                                                </div>
+
+                                                {{-- Points --}}
+                                                <div class="d-flex justify-content-between">
+
+                                                    <span class="text-white-50">
+
+                                                        Total Points
+
+                                                    </span>
+
+                                                    <span class="fw-bold text-primary">
+
+                                                        {{ $transaction->total_points }}
+
+                                                    </span>
+
+                                                </div>
+
+                                                {{-- Winning Details --}}
+                                                @if ($transaction->status == 'won')
+                                                    @php
+                                                        $wonBets = $transaction->bets->where('status', 'won');
+                                                    @endphp
+
+                                                    {{-- Winning Number --}}
+                                                    <div class="d-flex justify-content-between">
+                                                        <span class="text-white-50">
+                                                            Winning Numbers
+                                                        </span>
+
+                                                        <span class="fw-bold text-warning">
+                                                            {{ $wonBets->pluck('number')->implode(', ') }}
+                                                        </span>
+                                                    </div>
+
+                                                    {{-- Win Amount --}}
+                                                    <div class="d-flex justify-content-between">
+
+                                                        <span class="text-white-50">
+
+                                                            Win Amount
+
+                                                        </span>
+
+                                                        <span class="fw-bold text-success fs-4">
+
+                                                            ₹{{ number_format($transaction->total_win, 2) }}
+
+                                                        </span>
+
+                                                    </div>
+                                                @endif
+
+                                            </div>
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+
+                            </div>
+
+                        @empty
+
+                            <tr>
+
+                                <td colspan="5" class="py-5">
+
+                                    <div class="text-secondary">
+
+                                        <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+
+                                        No results found
+
+                                    </div>
+
+                                </td>
+
+                            </tr>
+                        @endforelse
+
+                    </tbody>
+
+                </table>
+
             </div>
-        @endif
+
+        </div>
 
     </div>
 @endsection

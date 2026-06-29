@@ -123,7 +123,7 @@
 
         <div class="d-flex align-items-center gap-2">
             @if (Auth::user()->role_id == 1 || Auth::user()->role_id == 2)
-                <a href="{{ route('users.index') }}" class="btn-lotto-green btn-boxed">+ Register User</a>
+            <a href="{{ route('users.index') }}" class="btn-lotto-green btn-boxed">+ Register User</a>
             @endif
             <span id="currentTime" class="fw-semibold px-2 font-monospace"></span>
             <a href="{{ route('dashboard') }}" class="btn-lotto-yellow btn-boxed">Back</a>
@@ -147,9 +147,10 @@
                 class="btn-lotto btn-boxed {{ request()->routeIs('account.index') ? 'active' : '' }}">
                 Accounts
             </a>
-            <a href="{{ route('bets.cancel.page') }}"
-                class="btn-lotto btn-boxed {{ request()->routeIs('bets.cancel.page') ? 'active' : '' }}">
-                Cancel
+
+            <a href="{{ route('transactions.index') }}"
+                class="btn-lotto btn-boxed {{ request()->routeIs('transactions.index') ? 'active' : '' }}">
+                TrDetails
             </a>
 
             <button class="btn-lotto btn-boxed {{ request()->routeIs('password.*') ? 'active' : '' }}"
@@ -157,9 +158,9 @@
                 Password
             </button>
 
-            <a href="{{ route('transactions.index') }}"
-                class="btn-lotto btn-boxed {{ request()->routeIs('transactions.index') ? 'active' : '' }}">
-                TrDetails
+            <a href="{{ route('bets.cancel.page') }}"
+                class="btn-lotto btn-boxed {{ request()->routeIs('bets.cancel.page') ? 'active' : '' }}">
+                Cancel
             </a>
 
             <a href="#" class="btn-lotto btn-boxed {{ request()->routeIs('reprint.*') ? 'active' : '' }}">

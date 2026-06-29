@@ -57,6 +57,19 @@ class BetController extends Controller
             $targetDraws[] = $this->getNextDrawTime();
         }
 
+        foreach ($targetDraws as $drawTime) {
+
+            $secondsLeft = now()->diffInSeconds($drawTime, false);
+
+            if ($secondsLeft <= 20) {
+
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Betting closed. Last 20 seconds before draw.'
+                ], 422);
+            }
+        }
+
         $finalTotalCost = $baseTotalPoints * count($targetDraws);
 
         // 2. Balance Check

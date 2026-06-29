@@ -1,7 +1,6 @@
 @extends('layouts.app')
 
 @section('content')
-
     <style>
         .filter-card {
             background: rgba(20, 20, 30, 0.92);
@@ -299,42 +298,6 @@
 
             </form>
 
-            <hr style="border-color: rgba(255,255,255,0.1);">
-
-            <div class="top-stats">
-
-                <div class="mini-stat">
-                    <strong>User:</strong>
-                    {{ auth()->user()->username }}
-                </div>
-
-                <div class="mini-stat">
-                    <strong>Commission:</strong>
-                    {{ $commissionRate }}%
-                </div>
-
-                <div class="mini-stat">
-                    <strong>Total Bets:</strong>
-                    {{ $totalBets }}
-                </div>
-
-                <div class="mini-stat">
-                    <strong>Won:</strong>
-                    {{ $wonBets }}
-                </div>
-
-                <div class="mini-stat">
-                    <strong>Lost:</strong>
-                    {{ $lostBets }}
-                </div>
-
-                <div class="mini-stat">
-                    <strong>Pending:</strong>
-                    {{ $pendingBets }}
-                </div>
-
-            </div>
-
         </div>
 
         {{-- MAIN REPORT --}}
@@ -344,275 +307,116 @@
                 Account Summary
             </h4>
 
-            {{-- POSITIVE SECTION --}}
-            <div class="section-box positive-section">
+            <div class="row g-4 mt-1">
 
-                <div class="section-heading positive-heading">
-                    <i class="fas fa-arrow-up me-2"></i>
-                    Account Positive (+)
+                {{-- REPORT 1 --}}
+                <div class="col-lg-6">
+
+                    <div class="report-card">
+
+                        <div class="report-title">
+                            Report – 1
+                        </div>
+
+                        <table class="summary-table">
+
+                            <tr>
+                                <th>Description</th>
+                                <th>Amount</th>
+                            </tr>
+
+                            <tr>
+                                <td>Play Point</td>
+                                <td>
+                                    {{ number_format($report1['play_point'], 2) }}
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td>Commission</td>
+                                <td>
+                                    {{ number_format($report1['commission'], 2) }}
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td>Win Point</td>
+                                <td>
+                                    {{ number_format($report1['win_point'], 2) }}
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <td>
+                                    <strong>Net</strong>
+                                </td>
+
+                                <td class="{{ $report1['net'] >= 0 ? 'positive-net' : 'negative-net' }}">
+
+                                    {{ $report1['net'] < 0 ? '-' : '' }}
+                                    {{ number_format(abs($report1['net']), 2) }}
+
+                                </td>
+                            </tr>
+
+                        </table>
+
+                    </div>
+
                 </div>
 
-                @if (count($positiveReports))
-                    <div class="row g-4 mt-1">
+                {{-- REPORT 2 --}}
+                <div class="col-lg-6">
 
-                        {{-- REPORT 1 --}}
-                        @if (isset($positiveReports['report1']))
-                            <div class="col-lg-6">
+                    <div class="report-card">
 
-                                <div class="report-card">
+                        <div class="report-title">
+                            Report – 2
+                        </div>
 
-                                    <div class="report-title">
-                                        Report – 1
-                                    </div>
+                        <table class="summary-table">
 
-                                    <table class="summary-table">
+                            <tr>
+                                <th>Description</th>
+                                <th>Amount</th>
+                            </tr>
 
-                                        <tr>
-                                            <th>Label</th>
-                                            <th>Description</th>
-                                            <th>Amount</th>
-                                        </tr>
+                            <tr>
+                                <td>Play Point</td>
+                                <td>
+                                    {{ number_format($report2['play_point'], 2) }}
+                                </td>
+                            </tr>
 
-                                        <tr>
-                                            <td>A</td>
-                                            <td>Play Point</td>
-                                            <td>
-                                                {{ number_format($positiveReports['report1']['play_point'], 2) }}
-                                            </td>
-                                        </tr>
+                            <tr>
+                                <td>Win Point</td>
+                                <td>
+                                    {{ number_format($report2['win_point'], 2) }}
+                                </td>
+                            </tr>
 
-                                        <tr>
-                                            <td>B</td>
-                                            <td>Commission</td>
-                                            <td>
-                                                {{ number_format($positiveReports['report1']['commission'], 2) }}
-                                            </td>
-                                        </tr>
+                            <tr>
+                                <td>
+                                    <strong>Net</strong>
+                                </td>
 
-                                        <tr>
-                                            <td>C</td>
-                                            <td>Win Point</td>
-                                            <td>
-                                                {{ number_format($positiveReports['report1']['win_point'], 2) }}
-                                            </td>
-                                        </tr>
+                                <td class="{{ $report2['net'] >= 0 ? 'positive-net' : 'negative-net' }}">
 
-                                        <tr>
-                                            <td>D</td>
-                                            <td><strong>Net</strong></td>
+                                    {{ $report2['net'] < 0 ? '-' : '' }}
+                                    {{ number_format(abs($report2['net']), 2) }}
 
-                                            <td
-                                                class="{{ $positiveReports['report1']['net'] >= 0 ? 'positive-net' : 'negative-net' }}">
-                                                {{ number_format($positiveReports['report1']['net'], 2) }}
-                                            </td>
-                                        </tr>
+                                </td>
+                            </tr>
 
-                                    </table>
-
-                                </div>
-
-                            </div>
-                        @endif
-
-
-
-                        {{-- REPORT 2 --}}
-                        @if (isset($positiveReports['report2']))
-                            <div class="col-lg-6">
-
-                                <div class="report-card">
-
-                                    <div class="report-title">
-                                        Report – 2
-                                    </div>
-
-                                    <table class="summary-table">
-
-                                        <tr>
-                                            <th>Label</th>
-                                            <th>Description</th>
-                                            <th>Amount</th>
-                                        </tr>
-
-                                        <tr>
-                                            <td>A</td>
-                                            <td>Play Point</td>
-                                            <td>
-                                                {{ number_format($positiveReports['report2']['play_point'], 2) }}
-                                            </td>
-                                        </tr>
-
-                                        <tr>
-                                            <td>B</td>
-                                            <td>Win Point</td>
-                                            <td>
-                                                {{ number_format($positiveReports['report2']['win_point'], 2) }}
-                                            </td>
-                                        </tr>
-
-                                        <tr>
-                                            <td>C</td>
-                                            <td><strong>Net</strong></td>
-
-                                            <td
-                                                class="{{ $positiveReports['report2']['net'] >= 0 ? 'positive-net' : 'negative-net' }}">
-                                                {{ number_format($positiveReports['report2']['net'], 2) }}
-                                            </td>
-                                        </tr>
-
-                                    </table>
-
-                                </div>
-
-                            </div>
-                        @endif
+                        </table>
 
                     </div>
-                @else
-                    <div class="text-center text-light py-4">
-                        No Positive Reports Found
-                    </div>
-                @endif
 
-            </div>
-
-
-
-            {{-- NEGATIVE SECTION --}}
-            <div class="section-box negative-section mt-4">
-
-                <div class="section-heading negative-heading">
-                    <i class="fas fa-arrow-down me-2"></i>
-                    Account Negative (-)
                 </div>
-
-                @if (count($negativeReports))
-                    <div class="row g-4 mt-1">
-
-                        {{-- REPORT 1 --}}
-                        @if (isset($negativeReports['report1']))
-                            <div class="col-lg-6">
-
-                                <div class="report-card">
-
-                                    <div class="report-title">
-                                        Report – 1
-                                    </div>
-
-                                    <table class="summary-table">
-
-                                        <tr>
-                                            <th>Label</th>
-                                            <th>Description</th>
-                                            <th>Amount</th>
-                                        </tr>
-
-                                        <tr>
-                                            <td>A</td>
-                                            <td>Play Point</td>
-                                            <td>
-                                                {{ number_format($negativeReports['report1']['play_point'], 2) }}
-                                            </td>
-                                        </tr>
-
-                                        <tr>
-                                            <td>B</td>
-                                            <td>Commission</td>
-                                            <td>
-                                                {{ number_format($negativeReports['report1']['commission'], 2) }}
-                                            </td>
-                                        </tr>
-
-                                        <tr>
-                                            <td>C</td>
-                                            <td>Win Point</td>
-                                            <td>
-                                                {{ number_format($negativeReports['report1']['win_point'], 2) }}
-                                            </td>
-                                        </tr>
-
-                                        <tr>
-                                            <td>D</td>
-                                            <td><strong>Net</strong></td>
-
-                                            <td
-                                                class="{{ $negativeReports['report1']['net'] >= 0 ? 'positive-net' : 'negative-net' }}">
-                                                {{ number_format($negativeReports['report1']['net'], 2) }}
-                                            </td>
-
-                                        </tr>
-
-                                    </table>
-
-                                </div>
-
-                            </div>
-                        @endif
-
-
-
-                        {{-- REPORT 2 --}}
-                        @if (isset($negativeReports['report2']))
-                            <div class="col-lg-6">
-
-                                <div class="report-card">
-
-                                    <div class="report-title">
-                                        Report – 2
-                                    </div>
-
-                                    <table class="summary-table">
-
-                                        <tr>
-                                            <th>Label</th>
-                                            <th>Description</th>
-                                            <th>Amount</th>
-                                        </tr>
-
-                                        <tr>
-                                            <td>A</td>
-                                            <td>Play Point</td>
-                                            <td>
-                                                {{ number_format($negativeReports['report2']['play_point'], 2) }}
-                                            </td>
-                                        </tr>
-
-                                        <tr>
-                                            <td>B</td>
-                                            <td>Win Point</td>
-                                            <td>
-                                                {{ number_format($negativeReports['report2']['win_point'], 2) }}
-                                            </td>
-                                        </tr>
-
-                                        <tr>
-                                            <td>C</td>
-                                            <td><strong>Net</strong></td>
-
-                                            <td
-                                                class="{{ $negativeReports['report2']['net'] >= 0 ? 'positive-net' : 'negative-net' }}">
-                                                {{ number_format($negativeReports['report2']['net'], 2) }}
-                                            </td>
-                                        </tr>
-
-                                    </table>
-
-                                </div>
-
-                            </div>
-                        @endif
-
-                    </div>
-                @else
-                    <div class="text-center text-light py-4">
-                        No Negative Reports Found
-                    </div>
-                @endif
 
             </div>
 
         </div>
 
     </div>
-
 @endsection

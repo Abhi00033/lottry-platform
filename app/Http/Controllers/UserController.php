@@ -219,7 +219,6 @@ class UserController extends Controller
         return redirect()->route('users.index')->with('success', 'User Created Successfully!');
     }
 
-
     // 🟡 Edit
     public function edit($id): View
     {
@@ -261,7 +260,7 @@ class UserController extends Controller
             'username'   => 'required|string|max:100|unique:users,username,' . $user->id,
             'commision' => 'nullable|numeric|min:0|max:100',
             'role_id' => ['required', 'integer', Rule::in(
-                auth()->user()->role_id == 1 ? [2, 3] : [3]
+                auth()->user()->role_id == 1 ? [1, 2, 3] : [3]
             )],
             'general_status_id' => 'required|integer',
         ]);
@@ -270,91 +269,6 @@ class UserController extends Controller
 
         return redirect()->route('users.index')->with('success', 'User Updated Successfully!');
     }
-
-
-    // public function balanceUpdate(Request $request, $id): RedirectResponse
-    // {
-    //     $targetUser = User::findOrFail($id);
-    //     $authUser = auth()->user();
-    //     $amount = abs($request->amount);
-    //     $action = $request->action;
-
-    //     if ($amount <= 0) {
-    //         return back()->with('error', 'Enter a valid amount!');
-    //     }
-
-    //     // --- AGENT LOGIC (Role 2) ---
-    //     if ($authUser->role_id == 2) {
-    //         // 1. Agents cannot update their own balance
-    //         if ($authUser->id == $targetUser->id) {
-    //             return back()->with('error', 'Agents cannot update their own wallet balance.');
-    //         }
-
-    //         // 2. Agents can only update their own Retailers
-    //         if ($targetUser->parent_id !== $authUser->id) {
-    //             return back()->with('error', 'Unauthorized access.');
-    //         }
-
-    //         if ($action === 'add') {
-    //             if ($authUser->balance < $amount) {
-    //                 return back()->with('error', 'Insufficient balance in your agent wallet!');
-    //             }
-    //             $authUser->decrement('balance', $amount);
-    //             $targetUser->increment('balance', $amount);
-
-    //             // Log for Agent (Deduction)
-    //             UserBalanceTransaction::create([
-    //                 'user_id' => $authUser->id,
-    //                 'type' => 'transfer_out',
-    //                 'amount' => $amount,
-    //                 'balance_after' => $authUser->balance,
-    //                 'remarks' => "Sent to Retailer: " . $targetUser->username
-    //             ]);
-    //         } else {
-    //             if ($targetUser->balance < $amount) {
-    //                 return back()->with('error', 'Retailer has insufficient balance.');
-    //             }
-    //             $targetUser->decrement('balance', $amount);
-    //             $authUser->increment('balance', $amount);
-
-    //             // Log for Agent (Recovery)
-    //             UserBalanceTransaction::create([
-    //                 'user_id' => $authUser->id,
-    //                 'type' => 'transfer_in',
-    //                 'amount' => $amount,
-    //                 'balance_after' => $authUser->balance,
-    //                 'remarks' => "Recovered from Retailer: " . $targetUser->username
-    //             ]);
-    //         }
-    //     }
-
-    //     // --- ADMIN LOGIC (Role 1) ---
-    //     elseif ($authUser->role_id == 1) {
-    //         // Admin can update anyone (including themselves) directly
-    //         if ($action === 'add') {
-    //             $targetUser->increment('balance', $amount);
-    //         } else {
-    //             if ($targetUser->balance < $amount) {
-    //                 return back()->with('error', 'Insufficient balance to deduct.');
-    //             }
-    //             $targetUser->decrement('balance', $amount);
-    //         }
-    //     } else {
-    //         return back()->with('error', 'Unauthorized role.');
-    //     }
-
-    //     // Always log for Target User
-    //     UserBalanceTransaction::create([
-    //         'user_id' => $targetUser->id,
-    //         'type' => ($action === 'add') ? 'credit' : 'debit',
-    //         'amount' => $amount,
-    //         'balance_after' => $targetUser->balance,
-    //         'remarks' => $request->remarks ?: "Balance adjusted by " . $authUser->username
-    //     ]);
-
-    //     return back()->with('success', 'Balance updated successfully.');
-    // }
-
 
     public function balanceUpdate(Request $request, $id): RedirectResponse
     {

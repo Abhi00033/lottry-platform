@@ -18,7 +18,7 @@ class GenerateDrawResults extends Command
 
     // Only one constant kept — used as fallback ONLY when a user has no commission set in DB.
     // All actual payouts and risk calculations use each agent's own commission rate from DB.
-    const DEFAULT_COMMISSION = 5;
+    const DEFAULT_COMMISSION = 0;
 
     // REMOVED: PAYOUT_MULTIPLIER = 90  → was hardcoded, wrong, replaced by per-agent rate
     // REMOVED: TARGET_HOUSE_PROFIT_PERCENT = 40 → was causing 0/1 repeat bug
@@ -48,7 +48,13 @@ class GenerateDrawResults extends Command
         }
 
         foreach ($seriesList as $mainSeries) {
+            $winnerRanges = collect(range(0, 9))
+                ->shuffle()
+                ->take(rand(1, 2))
+                ->toArray();
+
             for ($i = 0; $i < 10; $i++) {
+
                 $subSeriesStart = (int) $mainSeries->start + ($i * 100);
 
                 $exists = Result::where('draw_time', $drawTime)
@@ -61,7 +67,7 @@ class GenerateDrawResults extends Command
                 }
 
                 try {
-                    $this->processSubSeriesResult($mainSeries, $subSeriesStart, $drawTime);
+                    $this->processSubSeriesResult($mainSeries, $subSeriesStart, $drawTime, in_array($i, $winnerRanges));
                 } catch (\Throwable $e) {
                     $this->error("Error processing $subSeriesStart: " . $e->getMessage());
                     \Illuminate\Support\Facades\Log::error("DrawResult Error [$subSeriesStart]: " . $e->getMessage());
@@ -82,6 +88,8 @@ class GenerateDrawResults extends Command
     // Called in BOTH Step 2 (risk estimation) and Step 7 (actual payout)
     // so both are always using the exact same rate — no mismatch possible.
     // -------------------------------------------------------------------------
+
+
     private function getCommissionRate($user): float
     {
         if (
@@ -95,18 +103,13 @@ class GenerateDrawResults extends Command
         return self::DEFAULT_COMMISSION;
     }
 
-    private function processSubSeriesResult($mainSeries, $subSeriesStart, $drawTime)
+    private function processSubSeriesResult($mainSeries, $subSeriesStart, $drawTime, $allowWinner)
     {
-        DB::transaction(function () use ($mainSeries, $subSeriesStart, $drawTime) {
 
-            // $subSeriesEnd = $subSeriesStart + 99;
+        DB::transaction(function () use ($mainSeries, $subSeriesStart, $drawTime, $allowWinner) {
 
-            // -----------------------------------------------------------------
-            // STEP 1 — Fetch all pending bets for this sub-series
-            //
-            // ->with('user') eager loads each bet's agent so getCommissionRate()
-            // in Step 2 and Step 7 does NOT fire extra DB queries per bet.
-            // -----------------------------------------------------------------
+            //  STEP 1 — FETCH ALL PENDING BETS
+
             $bets = Bet::where('series_id', $mainSeries->id)
                 ->where('draw_time', $drawTime)
                 ->where('status', 'pending')
@@ -115,177 +118,227 @@ class GenerateDrawResults extends Command
                 ->lockForUpdate()
                 ->get();
 
+            //   NO BETS PLACED
+
+            if ($bets->isEmpty()) {
+
+                $randomNumber = $subSeriesStart + rand(0, 99);
+
+                Result::create([
+                    'draw_time'     => $drawTime,
+                    'series'        => $subSeriesStart,
+                    'result_number' => $randomNumber,
+                ]);
+
+                $this->info("No bets for {$subSeriesStart}. Random Result: {$randomNumber}");
+
+                return;
+            }
+
+            // STEP 2 — TOTAL COLLECTION
+
             $totalPointsCollected = $bets->sum('points');
 
-            // -----------------------------------------------------------------
-            // STEP 2 — Calculate REAL net payout per number
-            //
-            // For each of the 100 numbers in this sub-series, sum up the exact
-            // payout the house would need to pay if that number wins.
-            //
-            // Uses each agent's own commission from DB (via getCommissionRate).
-            //
-            // Formula per bet on that number:
-            //   netPayout = bet.points × (100 - agentCommission%)
-            //
-            // Examples with different admin-set commissions:
-            //   Agent commission 5%  → bet 100pts → payout = 100 × 95 = 9500
-            //   Agent commission 10% → bet 100pts → payout = 100 × 90 = 9000
-            //   Agent commission 20% → bet 100pts → payout = 100 × 80 = 8000
-            //   Agent no commission  → bet 100pts → payout = 100 × 95 = 9500 (default 5%)
-            //
-            // Multiple agents can bet on same number — we sum all their payouts.
-            // -----------------------------------------------------------------
+            // STEP 3 — CALCULATE PAYOUT PER NUMBER
+            // | REAL GAME LOGIC:
+            // | points already contains:
+            // | amount × page multiplier
+            // |
+            // | Final payout:
+            // | points × 90
+
             $payoutScenarios = [];
+
             for ($n = 0; $n <= 99; $n++) {
-                $fullNumber   = $subSeriesStart + $n;
-                $betsOnNumber = $bets->where('number', (string) $fullNumber);
 
-                $realNetPayout = $betsOnNumber->sum(function ($bet) {
-                    $commission = $this->getCommissionRate($bet->user);
-                    return $bet->points * (100 - $commission);
-                });
+                $fullNumber = $subSeriesStart + $n;
 
-                $payoutScenarios[$fullNumber] = $realNetPayout;
+                $betsOnNumber = $bets->where(
+                    'number',
+                    (string) $fullNumber
+                );
+
+                //    | IMPORTANT:
+                //     | ONLY NUMBERS WITH ACTUAL BETS
+
+
+
+
+                $totalBetPoints = $betsOnNumber->sum('points');
+
+                $payoutScenarios[$fullNumber] = [
+                    'points' => $totalBetPoints,
+                ];
             }
 
-            // -----------------------------------------------------------------
-            // STEP 3 — Last 5 results for this sub-series
-            // Used to avoid picking the same number repeatedly across draws.
-            // -----------------------------------------------------------------
-            $recentNumbers = Result::where('series', $subSeriesStart)
-                ->orderBy('draw_time', 'desc')
-                ->take(5)
+            //   STEP 4 — REMOVE RECENT RESULTS
+
+            $blockedSuffixes = Result::orderBy('draw_time', 'desc')
+                ->take(30)
                 ->pluck('result_number')
+                ->map(function ($number) {
+                    return $number % 100;
+                })
+                ->unique()
                 ->toArray();
 
-            // -----------------------------------------------------------------
-            // STEP 4 — Build safe candidate pool
-            //
-            // SAFE = real net payout for that number ≤ total points collected
-            // This guarantees house never pays out more than it took in.
-            // The difference (collected - payout) is the house profit.
-            // Commission per agent is already baked into $payoutScenarios.
-            //
-            // Example:
-            //   Total collected        = 10,000 pts
-            //   Number X net payout    =  7,500 pts → SAFE  (house profit = 2,500)
-            //   Number Y net payout    = 11,000 pts → NOT SAFE (house loses 1,000)
-            // -----------------------------------------------------------------
-            $safeNumbers = collect($payoutScenarios)->filter(
-                function ($netPayout) use ($totalPointsCollected) {
-                    if ($totalPointsCollected == 0) return true;
-                    return $netPayout <= $totalPointsCollected;
-                }
-            );
+            /*
+        |--------------------------------------------------------------------------
+        | STEP 5 — SAFE NUMBERS ONLY
+        |--------------------------------------------------------------------------
+        |
+        | We only allow numbers where:
+        |
+        | payout <= collection
+        |
+        | so house never goes into loss
+        |--------------------------------------------------------------------------
+        */
 
-            // Remove recently drawn numbers to avoid visible repeat pattern
-            $candidates = $safeNumbers->reject(
-                function ($payout, $number) use ($recentNumbers) {
-                    return in_array($number, $recentNumbers);
-                }
-            );
 
-            // Fallback 1: all safe numbers happened to be recent → allow from safe pool
+
+            $totalCollection = $bets->sum('points');
+
+            //   House keeps
+
+            $candidates = collect();
+
+            foreach ($payoutScenarios as $number => $data) {
+
+                $suffix = $number % 100;
+
+                if (in_array($suffix, $blockedSuffixes)) {
+                    continue;
+                }
+
+                $candidates[$number] = [
+                    'points' => $data['points'],
+                    'payout' => $data['points'] * 90
+                ];
+            }
+
+
+            //   Final fallback
+
             if ($candidates->isEmpty()) {
-                $candidates = $safeNumbers;
+                $candidates = collect($payoutScenarios);
             }
 
-            // Fallback 2: no safe numbers at all (extreme edge case — e.g. one agent
-            // placed massive bets on all 100 numbers) → pick least damaging number
-            if ($candidates->isEmpty()) {
-                $candidates = collect($payoutScenarios)->sortBy(fn($p) => $p);
-            }
+            //   Winner logic
 
-            // -----------------------------------------------------------------
-            // STEP 5 — Weighted random selection
-            //
-            // Fixes the core client complaint (0/1 numbers always repeating).
-            //
-            // OLD broken logic:
-            //   sort() → take(15) → random()
-            //   = always the 15 numbers with zero/lowest bets
-            //   = always low index numbers (00–14) since agents bet on round numbers
-            //   = agents see 1001, 1002, 1000 every draw → stop playing
-            //
-            // NEW fixed logic — weighted random:
-            //   weight = ((maxPayout - thisPayout) / maxPayout × 90) + 10
-            //
-            //   Zero-bet number  → weight 100 → most likely to win
-            //   Mid-bet number   → weight ~55 → can win
-            //   Max-bet number   → weight 10  → rarely wins but CAN win
-            //
-            // Result: winning numbers spread naturally across full 00–99 range.
-            // House is still protected because only safe numbers are in the pool.
-            // -----------------------------------------------------------------
-            $maxPayout = $candidates->max() ?: 1;
+            if (!$allowWinner) {
 
-            $pool = [];
-            foreach ($candidates as $number => $netPayout) {
-                $weight = (int)(($maxPayout - $netPayout) / $maxPayout * 90) + 10;
-                for ($w = 0; $w < $weight; $w++) {
-                    $pool[] = $number;
+                $zeroBetNumbers = $candidates->filter(function ($data) {
+                    return $data['points'] == 0;
+                });
+
+                if ($zeroBetNumbers->isNotEmpty()) {
+
+                    $winningNumber = $zeroBetNumbers
+                        ->keys()
+                        ->random();
+                } else {
+
+                    $winningNumber = $candidates
+                        ->keys()
+                        ->random();
+                }
+            } else {
+
+                $betNumbers = $candidates
+                    ->filter(function ($data) {
+                        return $data['points'] > 0;
+                    })
+                    ->sortBy('payout');
+
+                if ($betNumbers->isNotEmpty()) {
+
+                    $safeCandidates = $betNumbers
+                        ->take(max(1, ceil($betNumbers->count() * 0.8)));
+
+                    $winningNumber = $safeCandidates
+                        ->keys()
+                        ->random();
+                } else {
+
+                    $winningNumber = $candidates
+                        ->keys()
+                        ->random();
                 }
             }
 
-            $winningNumber = $pool[array_rand($pool)];
+            //    STEP 7 — SAVE RESULT
 
-            // -----------------------------------------------------------------
-            // STEP 6 — Persist result
-            // -----------------------------------------------------------------
             Result::create([
                 'draw_time'     => $drawTime,
                 'series'        => $subSeriesStart,
                 'result_number' => $winningNumber,
             ]);
 
-            // -----------------------------------------------------------------
-            // STEP 7 — Pay winners, mark losers
-            //
-            // Uses same getCommissionRate() as Step 2 — always in sync.
-            //
-            // Agent commission 5%  → wins 95× their bet points
-            // Agent commission 10% → wins 90× their bet points
-            // Agent commission 20% → wins 80× their bet points
-            // Agent not set        → wins 95× (DEFAULT_COMMISSION fallback = 5%)
-            //
-            // Commission in remarks for admin audit trail.
-            // -----------------------------------------------------------------
+            //   STEP 8 — PROCESS WINNERS / LOSERS
+
             foreach ($bets as $bet) {
-                if ($bet->status !== 'pending') continue;
+
+                if ($bet->status !== 'pending') {
+                    continue;
+                }
+
+                // WINNER
 
                 if ((int) $bet->number === (int) $winningNumber) {
 
                     $user = $bet->user ?? User::find($bet->user_id);
 
                     if (!$user) {
-                        $bet->update(['status' => 'lost']);
+
+                        $bet->update([
+                            'status' => 'lost'
+                        ]);
+
                         continue;
                     }
 
-                    $commissionRate = $this->getCommissionRate($user);
-                    $winAmount      = $bet->points * (100 - $commissionRate);
+                    // FINAL WIN LOGIC  points × 90
 
-                    $bet->update(['status' => 'won']);
-                    $user->increment('balance', $winAmount);
+                    $winAmount = $bet->points * 90;
+
+                    $bet->update([
+                        'status' => 'won'
+                    ]);
+
+                    $user->increment(
+                        'balance',
+                        $winAmount
+                    );
+
+                    //  COMMISSION IS SEPARATE BUSINESS LOGIC
+
+                    $commissionRate = $this->getCommissionRate($user);
 
                     UserBalanceTransaction::create([
+
                         'user_id'       => $user->id,
                         'type'          => 'credit',
                         'amount'        => $winAmount,
                         'balance_after' => $user->fresh()->balance,
-                        'remarks'       => "WIN: Draw " . $drawTime->format('h:i A') .
-                            " | No: $winningNumber" .
-                            " | Payout: {$winAmount}" .
-                            " | Commission: {$commissionRate}%",
-                    ]);
 
-                } else {
-                    $bet->update(['status' => 'lost']);
+                        'remarks'       =>
+                        "WIN: Draw " .
+                            $drawTime->format('h:i A') .
+                            " | No: {$winningNumber}" .
+                            " | Win: {$winAmount}" .
+                            " | Commission: {$commissionRate}%"
+                    ]);
+                }
+
+                //  LOSER
+                else {
+
+                    $bet->update([
+                        'status' => 'lost'
+                    ]);
                 }
             }
-
-            $this->info("Processed $subSeriesStart: Winner $winningNumber (Collected: $totalPointsCollected)");
         });
     }
 }

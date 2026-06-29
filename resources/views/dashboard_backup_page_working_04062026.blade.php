@@ -286,7 +286,6 @@
             /* Fixed height for row alignment */
             border: 1px solid #000;
             margin-bottom: 1px;
-            cursor: pointer;
         }
 
         .series-text-lg {
@@ -532,6 +531,34 @@
 
     <div class="container-fluid px-2">
         {{-- result  --}}
+        {{-- <div class="container-fluid p-0">
+            <div class="d-flex align-items-center gap-1" style="overflow-x: auto;">
+                @php
+                    $rowColors = [
+                        '#e6ee9c',
+                        '#ffab91',
+                        '#9ccc65',
+                        '#ffcc80',
+                        '#c5e1a5',
+                        '#fff59d',
+                        '#f48fb1',
+                        '#ffca28',
+                        '#66bb6a',
+                        '#ffe082',
+                    ];
+                @endphp
+
+                @for ($i = 0; $i < 10; $i++)
+                    <div class="text-center border border-dark flex-grow-1"
+                        style="background: {{ $rowColors[$i] }}; min-width: 85px; height: 38px; border-radius: 2px;">
+                        <div id="top-res-val-{{ $i }}"
+                            style="font-size: 1.3rem; font-weight: 900; color: #000000; line-height: 38px;">
+                            --
+                        </div>
+                    </div>
+                @endfor
+            </div>
+        </div> --}}
 
         <div class="container-fluid p-0 m-0">
             <table class="dash-table">
@@ -637,7 +664,7 @@
                     <div id="seriesSidebar">
                         @php $colors = ['#e6ee9c','#ffab91','#9ccc65','#ffcc80','#c5e1a5','#fff59d','#f48fb1','#ffca28','#66bb6a','#ffe082']; @endphp
                         @for ($i = 0; $i < 10; $i++)
-                            <div class="series-row-compact" data-page="{{ $i }}">
+                            <div class="series-row-compact">
                                 <div class="series-text-lg" id="label-row-{{ $i }}">1000-1009</div>
                                 <div class="series-amt-tab" style="background: {{ $colors[$i] }}">
                                     <input type="checkbox" class="row-selector me-1" style="transform: scale(1.1);">
@@ -820,6 +847,12 @@
 
 
     <script>
+        // Pass PHP Config to JavaScript
+        // const DRAW_CONF = {
+        //     start: "{{ config('app.draw_start') }}", // e.g. "08:00"
+        //     end: "{{ config('app.draw_end') }}" // e.g. "22:30"
+        // };
+
         function getConfigTime(timeStr) {
             return timeStr.split(':').map(Number);
         }
@@ -880,26 +913,6 @@
             const diff = drawTime - now;
             let s = Math.floor(diff / 1000);
 
-            // Disable betting in last 10 seconds
-
-            const placeBetBtn = document.getElementById('btnPlaceBet');
-
-            if (s <= 10) {
-
-                placeBetBtn.disabled = true;
-                placeBetBtn.innerHTML = 'Bet Closed';
-
-                if (msgEl) {
-                    msgEl.innerText = 'BETTING CLOSED - RESULT PROCESSING';
-                    msgEl.className = 'fw-bold text-danger text-uppercase';
-                }
-
-            } else {
-
-                placeBetBtn.disabled = false;
-                placeBetBtn.innerHTML = 'Place Bet';
-            }
-
             const sec = s % 60;
             s = (s - sec) / 60;
             const min = s % 60;
@@ -933,7 +946,7 @@
             // Filter Logic Placeholder
             gridRadios.forEach(radio => {
                 radio.addEventListener('change', function() {
-                    // console.log("Grid Logic Active: " + this.value);
+                    console.log("Grid Logic Active: " + this.value);
                     // In the future, this will trigger Even/Odd logic for the number grid
                 });
             });
@@ -971,93 +984,9 @@
             /* =====================================================
                STATE
             ===================================================== */
-            let activeSeriesRow = null;
+            let activeSeriesRow = 0;
             let currentMode = 'low';
             let currentBaseSeries = null;
-            let masterGridData = {};
-            let pageOverrides = {};
-            let pageOverrideMode = false;
-
-
-            function getCellKey(row, col) {
-                return `${row}_${col}`;
-            }
-
-            function getPageData(pageIndex) {
-
-                const pageData = {};
-
-                const keys = new Set([
-                    ...Object.keys(masterGridData || {}),
-                    ...Object.keys(pageOverrides[pageIndex] || {})
-                ]);
-
-                keys.forEach(key => {
-
-                    if (
-                        pageOverrides[pageIndex] &&
-                        pageOverrides[pageIndex].hasOwnProperty(key)
-                    ) {
-
-                        pageData[key] = pageOverrides[pageIndex][key];
-
-                    } else {
-
-                        pageData[key] = masterGridData[key];
-                    }
-                });
-
-                return pageData;
-            }
-
-            function getCellValue(page, row, col) {
-
-                const key = getCellKey(row, col);
-
-                if (
-                    pageOverrides[page] &&
-                    pageOverrides[page].hasOwnProperty(key)
-                ) {
-                    return pageOverrides[page][key];
-                }
-
-                // ONLY inherit when ALL is selected
-                if (document.getElementById('checkSelectAllRows').checked) {
-                    return masterGridData[key] || '';
-                }
-
-                return '';
-            }
-
-            function saveCurrentPageData() {
-
-                if (activeSeriesRow === null) {
-                    return;
-                }
-
-                const page = activeSeriesRow;
-
-                if (!pageOverrides[page]) {
-                    pageOverrides[page] = {};
-                }
-
-                document.querySelectorAll('.input-bet-field').forEach(input => {
-
-                    const key = getCellKey(
-                        input.dataset.row,
-                        input.dataset.col
-                    );
-
-                    const currentValue = input.value || '';
-                    const masterValue = masterGridData[key] || '';
-
-                    if (currentValue !== masterValue) {
-                        pageOverrides[page][key] = currentValue;
-                    } else {
-                        delete pageOverrides[page][key];
-                    }
-                });
-            }
 
             /* =====================================================
                CONFIG
@@ -1088,15 +1017,6 @@
                 currentBaseSeries = parseInt(firstCheckedSeries.value, 10);
             }
 
-            activeSeriesRow = 0;
-            pageOverrideMode = true;
-
-            const firstRow = document.querySelectorAll('.row-selector')[0];
-
-            if (firstRow) {
-                firstRow.checked = true;
-            }
-
             function applySeriesFilter(mode) {
                 seriesCheckboxes.forEach(cb => {
                     const seriesVal = parseInt(cb.closest('.series-tab').dataset.series, 10);
@@ -1112,6 +1032,46 @@
                     applySeriesFilter(this.value);
                 });
             });
+
+            //    seriesCheckboxes.forEach(cb => {
+            //         cb.addEventListener('change', () => {
+            //             filterRadios.forEach(r => r.checked = false);
+
+            //             if (cb.checked) {
+            //                 // User checked a series → switch view to it
+            //                 currentBaseSeries = parseInt(cb.value, 10);
+            //                 activeSeriesRow = 0;
+            //                 updateView();
+            //                 updateTopResults(currentBaseSeries);
+            //             } else {
+            //                 // User unchecked a series → auto-switch to first remaining checked series
+            //                 const allChecked = [...document.querySelectorAll('.series-select:checked')];
+            //                 const highestRemaining = allChecked.length > 0 ?
+            //                     allChecked.reduce((max, cb) => parseInt(cb.value) > parseInt(max
+            //                         .value) ? cb : max) :
+            //                     null;
+
+            //                 if (highestRemaining) {
+            //                     currentBaseSeries = parseInt(highestRemaining.value, 10);
+            //                     activeSeriesRow = 0;
+            //                     updateView();
+            //                     updateTopResults(currentBaseSeries);
+            //                 } else {
+            //                     // No series checked at all → auto-check and switch back to first series (1000)
+            //                     const firstSeries = document.querySelector('.series-select');
+            //                     if (firstSeries) {
+            //                         firstSeries.checked = true;
+            //                         currentBaseSeries = parseInt(firstSeries.value, 10);
+            //                         activeSeriesRow = 0;
+            //                         updateView();
+            //                         updateTopResults(currentBaseSeries);
+            //                     }
+            //                 }
+            //             }
+
+            //             document.dispatchEvent(new Event('recalculateGridStats'));
+            //         });
+            //     });
 
             seriesCheckboxes.forEach(cb => {
 
@@ -1148,8 +1108,7 @@
                         currentBaseSeries = parseInt(highestSeries.value, 10);
                     }
 
-                    activeSeriesRow = null;
-                    pageOverrideMode = false;
+                    activeSeriesRow = 0;
 
                     updateView();
 
@@ -1223,8 +1182,17 @@
                         // Selection Highlight Logic
                         const rowColor = amtEl.style.background;
 
+                        // if (i === activeSeriesRow || (rowCB && rowCB.checked)) {
+                        //     textEl.style.background = rowColor;
+                        //     amtEl.style.outline = '3px solid #000';
+                        // } else {
+                        //     textEl.style.background = '#fff';
+                        //     amtEl.style.outline = 'none';
+                        // }
+
+
                         // PAGE ACTIVE ROW VISUAL
-                        if (activeSeriesRow !== null && i === activeSeriesRow) {
+                        if (i === activeSeriesRow) {
 
                             // current page highlight
                             textEl.style.background = '#000';
@@ -1255,8 +1223,7 @@
 
                 /* ---------- Center 10x10 Betting Grid ---------- */
                 // This part updates the small numbers (e.g., 1001, 1002) inside the grid cells
-                const currentPage = activeSeriesRow ?? 0;
-                const gridStart = baseSeries + (currentPage * 100);
+                const gridStart = baseSeries + (activeSeriesRow * 100);
                 for (let r = 0; r < 10; r++) {
                     for (let c = 0; c < 10; c++) {
                         const betLabel = document.getElementById(`bet-label-${r}-${c}`);
@@ -1265,87 +1232,31 @@
                         }
                     }
                 }
-                document.querySelectorAll('.input-bet-field').forEach(input => {
-
-                    input.value = getCellValue(
-                        activeSeriesRow,
-                        input.dataset.row,
-                        input.dataset.col
-                    );
-                });
             }
 
             /* =====================================================
                PAGE NAVIGATION
             ===================================================== */
             document.getElementById('btnPageDown').onclick = () => {
-
-                saveCurrentPageData();
-
-                if (activeSeriesRow === null) {
-                    activeSeriesRow = 0;
-                } else if (activeSeriesRow < 9) {
+                if (activeSeriesRow < 9) {
                     activeSeriesRow++;
+                    updateView();
+                    updateTopResults(currentBaseSeries);
                 }
-
-                pageOverrideMode = true;
-                updateView();
-                updateTopResults(currentBaseSeries);
-                updateAllStats();
-
             };
 
             document.getElementById('btnPageUp').onclick = () => {
-                saveCurrentPageData();
-
-                if (activeSeriesRow === null) {
-                    activeSeriesRow = 0;
-                } else if (activeSeriesRow > 0) {
+                if (activeSeriesRow > 0) {
                     activeSeriesRow--;
+                    updateView();
+                    updateTopResults(currentBaseSeries);
                 }
-                pageOverrideMode = true;
-                updateView();
-                updateTopResults(currentBaseSeries);
-                updateAllStats();
-
             };
-
-            document.querySelectorAll('.series-row-compact')
-                .forEach(row => {
-
-                    row.addEventListener('click', function(e) {
-
-                        if (
-                            e.target.classList.contains('row-selector')
-                        ) {
-                            return;
-                        }
-
-                        saveCurrentPageData();
-
-                        activeSeriesRow = parseInt(
-                            this.dataset.page
-                        );
-
-                        pageOverrideMode = true;
-
-                        updateView();
-                        updateTopResults(currentBaseSeries);
-                        updateAllStats();
-                    });
-
-                });
 
             /* =====================================================
                ROW CHECKBOXES
             ===================================================== */
             allRowsCB.onchange = function() {
-                if (this.checked) {
-
-                    activeSeriesRow = null;
-                    pageOverrideMode = false;
-
-                }
                 document.querySelectorAll('.row-selector')
                     .forEach(cb => cb.checked = this.checked);
                 updateView();
@@ -1353,27 +1264,8 @@
                 document.dispatchEvent(new Event('recalculateGridStats'));
             };
 
-            document.querySelectorAll('.row-selector').forEach((cb, index) => {
-
-                cb.onchange = function() {
-
-                    if (this.checked) {
-
-                        activeSeriesRow = index;
-                        pageOverrideMode = true;
-
-                    } else if (
-                        document.querySelectorAll('.row-selector:checked').length === 0
-                    ) {
-
-                        activeSeriesRow = null;
-                        pageOverrideMode = false;
-                    }
-
-                    updateView();
-                    updateAllStats();
-                };
-            });
+            document.querySelectorAll('.row-selector')
+                .forEach(cb => cb.onchange = updateView);
 
             /* =====================================================
                AMT RADIO (LOW MODE ONLY) - FIXED
@@ -1411,29 +1303,12 @@
                         (filterMode === 'odd' && lastDigit % 2 !== 0)
                     ) {
                         input.value = value;
-
-                        const key = getCellKey(r, c);
-
-                        if (allRowsCB.checked && !pageOverrideMode) {
-
-                            masterGridData[key] = value;
-
-                        } else {
-
-                            if (!pageOverrides[activeSeriesRow]) {
-                                pageOverrides[activeSeriesRow] = {};
-                            }
-
-                            pageOverrides[activeSeriesRow][key] = value;
-                        }
                     }
                 });
                 document.dispatchEvent(new Event('recalculateGridStats'));
             }
 
             function resetGridAndStats() {
-                masterGridData = {};
-                pageOverrides = {};
                 document.querySelectorAll('.input-bet-field').forEach(input => input.value = '');
                 document.querySelectorAll('.master-row, .master-col').forEach(input => input.value = '');
                 document.querySelectorAll('.row-selector').forEach(cb => cb.checked = false);
@@ -1445,17 +1320,6 @@
                 document.getElementById('totalPoints').value = 0;
                 document.dispatchEvent(new Event('recalculateGridStats'));
             }
-
-            document.getElementById('btnClear').addEventListener('click', function() {
-
-                resetGridAndStats();
-
-                const barcode = document.getElementById('barcodeInput');
-                if (barcode) barcode.value = '';
-
-                updateView();
-                updateAllStats();
-            });
 
             document.querySelectorAll('.master-row').forEach(inp => {
                 inp.oninput = function() {
@@ -1557,19 +1421,6 @@
                 selectedIndices.forEach(index => {
                     const input = allInputs[index];
                     input.value = 1;
-                    const key = getCellKey(
-                        input.dataset.row,
-                        input.dataset.col
-                    );
-
-                    if (allRowsCB.checked && !pageOverrideMode) {
-                        masterGridData[key] = 1;
-                    } else {
-                        if (!pageOverrides[activeSeriesRow]) {
-                            pageOverrides[activeSeriesRow] = {};
-                        }
-                        pageOverrides[activeSeriesRow][key] = 1;
-                    }
                     input.style.backgroundColor = '#fff59d';
                     setTimeout(() => {
                         input.style.backgroundColor = '#fff';
@@ -1640,19 +1491,6 @@
                         if (el) {
                             el.style.backgroundColor = '#fff59d';
                             el.value = 1;
-                            const key = getCellKey(
-                                el.dataset.row,
-                                el.dataset.col
-                            );
-
-                            if (allRowsCB.checked && !pageOverrideMode) {
-                                masterGridData[key] = 1;
-                            } else {
-                                if (!pageOverrides[activeSeriesRow]) {
-                                    pageOverrides[activeSeriesRow] = {};
-                                }
-                                pageOverrides[activeSeriesRow][key] = 1;
-                            }
                             el.dataset.fpGroup = 'active'; // mark as FP group
                             linkedInputs.push(el);
                         }
@@ -1717,6 +1555,19 @@
                     headerResult.classList.add('d-none');
                 }
 
+                // document.querySelectorAll('.stat-row').forEach(row => {
+                //     const normalStats = row.querySelectorAll('.stat-normal');
+                //     const resultStat = row.querySelector('.stat-result');
+
+                //     if (isResultMode) {
+                //         normalStats.forEach(el => el.style.setProperty('display', 'none','important'));
+                //         if (resultStat) resultStat.style.setProperty('display', 'block','important');
+                //     } else {
+                //         normalStats.forEach(el => el.style.setProperty('display', 'flex','important'));
+                //         if (resultStat) resultStat.style.setProperty('display', 'none',
+                //             'important');
+                //     }
+                // });
 
                 document.querySelectorAll('.stat-row').forEach(row => {
 
@@ -1750,31 +1601,11 @@
             /* =====================================================
                GLOBAL GRID TOTAL (100 INPUTS)
             ===================================================== */
-            function getGridQtyForPage(pageIndex) {
-
+            function getGridQty() {
                 let qty = 0;
-
-                const keys = new Set([
-                    ...Object.keys(masterGridData),
-                    ...Object.keys(pageOverrides[pageIndex] || {})
-                ]);
-
-                keys.forEach(key => {
-
-                    let value;
-
-                    if (
-                        pageOverrides[pageIndex] &&
-                        pageOverrides[pageIndex].hasOwnProperty(key)
-                    ) {
-                        value = pageOverrides[pageIndex][key];
-                    } else {
-                        value = masterGridData[key];
-                    }
-
-                    qty += parseInt(value || 0, 10);
+                document.querySelectorAll('.input-bet-field').forEach(input => {
+                    qty += parseInt(input.value || 0, 10);
                 });
-
                 return qty;
             }
 
@@ -1794,59 +1625,64 @@
 
             //    UPDATE SIDEBAR ROW STATS & TOTALS
 
-            function updateAllStats() {
+            // function updateAllStats() {
+            //     const gridQty = getGridQty();
+            //     let totalQty = 0;
+            //     let totalPoints = 0;
 
+            //     for (let i = 0; i < 10; i++) {
+            //         const rowCB = document.querySelectorAll('.row-selector')[i];
+
+            //         if (rowCB && rowCB.checked) {
+            //             const rate = getRowRate(i);
+            //             const points = gridQty * rate;
+            //             document.getElementById(`qty-row-${i}`).innerText = gridQty;
+            //             document.getElementById(`points-row-${i}`).innerText = points;
+            //         } else {
+            //             document.getElementById(`qty-row-${i}`).innerText = 0;
+            //             document.getElementById(`points-row-${i}`).innerText = 0;
+            //         }
+
+            //         totalQty += parseInt(document.getElementById(`qty-row-${i}`).innerText || 0, 10);
+            //         totalPoints += parseInt(document.getElementById(`points-row-${i}`).innerText || 0, 10);
+            //     }
+
+            //     document.getElementById('totalQty').value = totalQty;
+            //     document.getElementById('totalPoints').value = totalPoints;
+            // }
+
+            function updateAllStats() {
+                const gridQty = getGridQty();
                 let totalQty = 0;
                 let totalPoints = 0;
 
-                // Count checked series
-                const checkedSeriesCount =
-                    document.querySelectorAll('.series-select:checked').length;
-
-                const seriesMultiplier =
-                    checkedSeriesCount > 0 ? checkedSeriesCount : 1;
+                // Count how many series tabs are checked
+                const checkedSeriesCount = document.querySelectorAll('.series-select:checked').length;
+                const seriesMultiplier = checkedSeriesCount > 0 ? checkedSeriesCount : 1;
 
                 for (let i = 0; i < 10; i++) {
-
-                    const rowCB =
-                        document.querySelectorAll('.row-selector')[i];
-
-                    // IMPORTANT: Get qty for THIS page
-                    const gridQty = getGridQtyForPage(i);
+                    const rowCB = document.querySelectorAll('.row-selector')[i];
 
                     if (rowCB && rowCB.checked) {
-
                         const rate = getRowRate(i);
-
-                        const qty =
-                            gridQty * seriesMultiplier;
-
-                        const points =
-                            gridQty * rate * seriesMultiplier;
-
+                        // Multiply points by number of selected series
+                        const points = gridQty * rate * seriesMultiplier;
+                        const qty = gridQty * seriesMultiplier;
                         document.getElementById(`qty-row-${i}`).innerText = qty;
                         document.getElementById(`points-row-${i}`).innerText = points;
-
                     } else {
-
                         document.getElementById(`qty-row-${i}`).innerText = 0;
                         document.getElementById(`points-row-${i}`).innerText = 0;
                     }
 
-                    totalQty += parseInt(
-                        document.getElementById(`qty-row-${i}`).innerText || 0,
-                        10
-                    );
-
-                    totalPoints += parseInt(
-                        document.getElementById(`points-row-${i}`).innerText || 0,
-                        10
-                    );
+                    totalQty += parseInt(document.getElementById(`qty-row-${i}`).innerText || 0, 10);
+                    totalPoints += parseInt(document.getElementById(`points-row-${i}`).innerText || 0, 10);
                 }
 
                 document.getElementById('totalQty').value = totalQty;
                 document.getElementById('totalPoints').value = totalPoints;
             }
+
             /* =====================================================
                FULL GRID + MASTER INPUT NAVIGATION
             ===================================================== */
@@ -2011,39 +1847,7 @@
                STATS TRIGGERS
             ===================================================== */
             document.querySelectorAll('.input-bet-field').forEach(input => {
-
-                input.addEventListener('input', function() {
-
-                    const key = getCellKey(
-                        this.dataset.row,
-                        this.dataset.col
-                    );
-
-                    const value = this.value;
-
-                    // ALL selected
-                    const allSelected =
-                        document.getElementById('checkSelectAllRows').checked;
-
-                    if (allSelected && !pageOverrideMode) {
-
-                        masterGridData[key] = value;
-
-                    } else {
-
-                        if (!pageOverrides[activeSeriesRow]) {
-                            pageOverrides[activeSeriesRow] = {};
-                        }
-
-                        if (value === '') {
-                            delete pageOverrides[activeSeriesRow][key];
-                        } else {
-                            pageOverrides[activeSeriesRow][key] = value;
-                        }
-                    }
-
-                    updateAllStats();
-                });
+                input.addEventListener('input', updateAllStats);
             });
 
             // Trigger stats update when event is dispatched (from other functions)
@@ -2055,227 +1859,168 @@
             updateView();
             updateTopResults(currentBaseSeries);
             updateAllStats();
+        });
 
-            document.dispatchEvent(
-                new Event('recalculateGridStats')
-            );
 
-            // BET PLACEMENT LOGIC - (Frontend Calculated)
+        // below footer
+        document.getElementById('btnClear').addEventListener('click', function() {
 
-            document.getElementById('btnPlaceBet').addEventListener('click', function() {
-                placeBet();
+            // Clear grid inputs
+            document.querySelectorAll('.input-bet-field').forEach(inp => {
+                inp.value = '';
             });
 
-            function placeBet() {
-                saveCurrentPageData();
-                const now = new Date();
+            // Clear master row & column inputs
+            document.querySelectorAll('.master-row, .master-col').forEach(inp => {
+                inp.value = '';
+            });
 
-                // BLOCK LAST 10 SECONDS
-                const nextDraw = getNextQuarterHour(now);
-                const secondsLeft = Math.floor((nextDraw - now) / 1000);
+            // Uncheck sidebar row selectors
+            document.querySelectorAll('.row-selector').forEach(cb => {
+                cb.checked = false;
+            });
 
-                if (secondsLeft <= 10) {
+            // Reset select all rows
+            const selectAll = document.getElementById('checkSelectAllRows');
+            if (selectAll) selectAll.checked = false;
 
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Betting Closed',
-                        text: 'Last 10 seconds before draw.'
-                    });
+            // Reset totals
+            document.getElementById('totalQty').value = 0;
+            document.getElementById('totalPoints').value = 0;
 
-                    return;
-                }
+            // Reset per-row stats
+            document.querySelectorAll('[id^="qty-row-"]').forEach(el => el.innerText = 0);
+            document.querySelectorAll('[id^="points-row-"]').forEach(el => el.innerText = 0);
 
-                if (!isWithinDrawTime(now)) {
+            // Clear barcode field
+            const barcode = document.getElementById('barcodeInput');
+            if (barcode) barcode.value = '';
+        });
+    </script>
 
-                    Swal.fire({
-                        icon: 'error',
-                        title: 'Draw Time Over',
-                        text: `❌ Betting is closed. Allowed time: ${DRAW_CONF.start} to ${DRAW_CONF.end}.`,
-                    });
-                    return;
-                }
+    {{-- GLOBAL GRID TOTAL (100 INPUTS) --}}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
 
-                // --- NEW: COLLECT ADVANCE DRAW TIMES ---
-                const advanceDrawTimes = [];
-                document.querySelectorAll('.advance-draw-cb:checked').forEach(cb => {
-                    advanceDrawTimes.push(cb.value);
+
+            function getGridQty() {
+                let qty = 0;
+
+                document.querySelectorAll('.input-bet-field').forEach(input => {
+                    qty += parseInt(input.value || 0, 10);
                 });
 
-                // If advance draws selected, use them. If not, array is empty.
-                // ----------------------------------------
-
-                // 1. Get Totals
-                const grandTotalPoints = parseFloat(document.getElementById('totalPoints').value || 0);
-
-                // 2. Get Ticket Price
-                const selectedRadio = document.querySelector('input[name="main_amt"]:checked');
-                if (!selectedRadio) {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Select Amount'
-                    });
-                    return;
-                }
-                const ticketPrice = parseFloat(selectedRadio.value);
-
-                // 3. Validation
-                if (grandTotalPoints <= 0) {
-                    Swal.fire({
-                        icon: 'warning',
-                        title: 'Empty Grid',
-                        text: 'No bets entered.'
-                    });
-                    return;
-                }
-
-                // --- NEW: COST CALCULATION ADJUSTMENT ---
-                // If user selects 5 advance draws, the total cost multiplies by 5.
-                // We need to show this to the user or validate balance frontend.
-                let multiplier = 1;
-                if (advanceDrawTimes.length > 0) {
-                    multiplier = advanceDrawTimes.length;
-                }
-
-                const finalTotalCost = grandTotalPoints * multiplier;
-                // -----------------------------------------
-
-                const btn = document.getElementById('btnPlaceBet');
-                btn.disabled = true;
-                btn.innerHTML = 'Processing...';
-
-                // 5. Build Bets Using masterGridData + pageOverrides
-
-                const bets = [];
-
-                const checkedSeriesTabs =
-                    document.querySelectorAll('.series-select:checked');
-
-                checkedSeriesTabs.forEach(seriesCheckbox => {
-
-                    const baseSeries =
-                        parseInt(seriesCheckbox.value, 10);
-
-                    document.querySelectorAll('.series-row-compact')
-                        .forEach((rowEl, index) => {
-
-                            if (
-                                !rowEl.querySelector('.row-selector').checked
-                            ) {
-                                return;
-                            }
-
-                            const seriesStart =
-                                baseSeries + (index * 100);
-
-                            const pageData =
-                                getPageData(index);
-
-                            const seriesNumbers = {};
-
-                            Object.entries(pageData)
-                                .forEach(([key, qty]) => {
-
-                                    qty = parseInt(qty || 0);
-
-                                    if (qty <= 0) {
-                                        return;
-                                    }
-
-                                    const [r, c] =
-                                    key.split('_').map(Number);
-
-                                    const actualNumber =
-                                        seriesStart +
-                                        (r * 10) +
-                                        c;
-
-                                    seriesNumbers[
-                                        actualNumber
-                                    ] = qty;
-                                });
-
-                            if (
-                                Object.keys(seriesNumbers).length === 0
-                            ) {
-                                return;
-                            }
-
-                            const displayAmt =
-                                rowEl.querySelector('.display-amt')
-                                ?.innerText ||
-                                String(ticketPrice);
-
-                            let unitPoints = ticketPrice;
-
-                            if (displayAmt.includes('*')) {
-
-                                const [a, b] =
-                                displayAmt
-                                    .split('*')
-                                    .map(v => parseInt(v.trim()));
-
-                                unitPoints = a * b;
-                            }
-
-                            bets.push({
-                                series_start: seriesStart,
-                                row_index: index,
-                                unit_points: unitPoints,
-                                numbers: seriesNumbers
-                            });
-
-                        });
-                });
-
-                // console.log(bets);
-                // 6. Send to Backend
-                fetch("{{ route('bet.place') }}", {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute(
-                                'content')
-                        },
-                        body: JSON.stringify({
-                            bets: bets,
-                            total_points: grandTotalPoints, // Base points per draw
-                            ticket_price: ticketPrice,
-                            draw_times: advanceDrawTimes // <--- SENDING ARRAY
-                        })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Bet Placed!',
-                                html: `<b>${data.message}</b><br>Draws: ${Math.max(1, advanceDrawTimes.length)}<br>Total Cost: <b>${data.total_points}</b>`,
-                                confirmButtonText: 'OK'
-                            }).then((result) => {
-                                if (result.isConfirmed) window.location.reload();
-                            });
-                            document.getElementById('btnClear').click();
-                        } else {
-                            Swal.fire({
-                                icon: 'error',
-                                title: 'Error',
-                                text: data.message
-                            });
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        Swal.fire({
-                            icon: 'error',
-                            title: 'System Error',
-                            text: 'Check console.'
-                        });
-                    })
-                    .finally(() => {
-                        btn.disabled = false;
-                        btn.innerHTML = 'Place Bet';
-                    });
+                return qty;
             }
+
+            function getRowRate(rowIndex) {
+                const row = document.querySelectorAll('.series-row-compact')[rowIndex];
+                if (!row) return 0;
+
+                const displayAmt = row.querySelector('.display-amt')?.innerText || '0';
+
+                // HIGH MODE → "2 * 3"
+                if (displayAmt.includes('*')) {
+                    const [a, b] = displayAmt.split('*').map(v => parseInt(v.trim(), 10));
+                    return a * b;
+                }
+
+                // LOW MODE → "2"
+                return parseInt(displayAmt, 10) || 0;
+            }
+
+            //    UPDATE SIDEBAR ROW STATS
+
+            // function updateRowStats(rowIndex, gridQty) {
+            //     const rowCB = document.querySelectorAll('.row-selector')[rowIndex];
+
+            //     if (!rowCB || !rowCB.checked) {
+            //         document.getElementById(`qty-row-${rowIndex}`).innerText = 0;
+            //         document.getElementById(`points-row-${rowIndex}`).innerText = 0;
+            //         return;
+            //     }
+
+            //     const rate = getRowRate(rowIndex);
+            //     const points = gridQty * rate;
+
+            //     document.getElementById(`qty-row-${rowIndex}`).innerText = gridQty;
+            //     document.getElementById(`points-row-${rowIndex}`).innerText = points;
+            // }
+
+            function updateRowStats(rowIndex, gridQty) {
+                const rowCB = document.querySelectorAll('.row-selector')[rowIndex];
+
+                if (!rowCB || !rowCB.checked) {
+                    document.getElementById(`qty-row-${rowIndex}`).innerText = 0;
+                    document.getElementById(`points-row-${rowIndex}`).innerText = 0;
+                    return;
+                }
+
+                // Count checked series
+                const checkedSeriesCount = document.querySelectorAll('.series-select:checked').length;
+                const seriesMultiplier = checkedSeriesCount > 0 ? checkedSeriesCount : 1;
+
+                const rate = getRowRate(rowIndex);
+                const points = gridQty * rate * seriesMultiplier;
+                const qty = gridQty * seriesMultiplier;
+
+                document.getElementById(`qty-row-${rowIndex}`).innerText = qty;
+                document.getElementById(`points-row-${rowIndex}`).innerText = points;
+            }
+
+            //    UPDATE TOTALS
+
+            function updateAllStats() {
+                const gridQty = getGridQty();
+
+                let totalQty = 0;
+                let totalPoints = 0;
+
+                for (let i = 0; i < 10; i++) {
+                    updateRowStats(i, gridQty);
+
+                    totalQty += parseInt(
+                        document.getElementById(`qty-row-${i}`).innerText || 0,
+                        10
+                    );
+
+                    totalPoints += parseInt(
+                        document.getElementById(`points-row-${i}`).innerText || 0,
+                        10
+                    );
+                }
+
+                document.getElementById('totalQty').value = totalQty;
+                document.getElementById('totalPoints').value = totalPoints;
+            }
+
+            //    TRIGGERS (ALL SCENARIOS COVERED)
+
+            // Grid input change (type anytime)
+            document.querySelectorAll('.input-bet-field').forEach(input => {
+                input.addEventListener('input', updateAllStats);
+            });
+
+            // Row checkbox toggle
+            document.querySelectorAll('.row-selector').forEach(cb => {
+                cb.addEventListener('change', updateAllStats);
+            });
+
+            // Amount change (LOW mode)
+            document.querySelectorAll('input[name="main_amt"]').forEach(rad => {
+                rad.addEventListener('change', updateAllStats);
+            });
+
+            // Page navigation (labels change, inputs reused)
+            document.getElementById('btnPageUp')?.addEventListener('click', updateAllStats);
+            document.getElementById('btnPageDown')?.addEventListener('click', updateAllStats);
+
+            // Initial run
+            updateAllStats();
+
+            document.addEventListener('recalculateGridStats', function() {
+                updateAllStats();
+            });
         });
     </script>
 
@@ -2408,7 +2153,194 @@
             const localISOTime = (new Date(date - offset)).toISOString().slice(0, 19).replace('T', ' ');
             return localISOTime;
         }
+
+        // Helper: Parse "08:00"
+        function getConfigTime(timeStr) {
+            return timeStr.split(':').map(Number);
+        }
     </script>
+
+
+    {{-- BET PLACEMENT LOGIC - (Frontend Calculated) --}}
+    <script>
+        document.getElementById('btnPlaceBet').addEventListener('click', function() {
+            placeBet();
+        });
+
+        function placeBet() {
+            // --- EXISTING TIME CHECK (Keep this) ---
+            const now = new Date();
+
+            if (!isWithinDrawTime(now)) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Draw Time Over',
+                    text: `❌ Betting is closed. Allowed time: ${DRAW_CONF.start} to ${DRAW_CONF.end}.`,
+                });
+                return;
+            }
+
+            // --- NEW: COLLECT ADVANCE DRAW TIMES ---
+            const advanceDrawTimes = [];
+            document.querySelectorAll('.advance-draw-cb:checked').forEach(cb => {
+                advanceDrawTimes.push(cb.value);
+            });
+
+            // If advance draws selected, use them. If not, array is empty.
+            // ----------------------------------------
+
+            // 1. Get Totals
+            const grandTotalPoints = parseFloat(document.getElementById('totalPoints').value || 0);
+
+            // 2. Get Ticket Price
+            const selectedRadio = document.querySelector('input[name="main_amt"]:checked');
+            if (!selectedRadio) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Select Amount'
+                });
+                return;
+            }
+            const ticketPrice = parseFloat(selectedRadio.value);
+
+            // 3. Validation
+            if (grandTotalPoints <= 0) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Empty Grid',
+                    text: 'No bets entered.'
+                });
+                return;
+            }
+
+            // --- NEW: COST CALCULATION ADJUSTMENT ---
+            // If user selects 5 advance draws, the total cost multiplies by 5.
+            // We need to show this to the user or validate balance frontend.
+            let multiplier = 1;
+            if (advanceDrawTimes.length > 0) {
+                multiplier = advanceDrawTimes.length;
+            }
+
+            const finalTotalCost = grandTotalPoints * multiplier;
+            // -----------------------------------------
+
+            const btn = document.getElementById('btnPlaceBet');
+            btn.disabled = true;
+            btn.innerHTML = 'Processing...';
+
+            // 5. Gather Data (Grid Pattern)
+            const gridPattern = {};
+            document.querySelectorAll('.input-bet-field').forEach(input => {
+                const val = parseInt(input.value || 0);
+                if (val > 0) {
+                    gridPattern[`${input.dataset.row}-${input.dataset.col}`] = val;
+                }
+            });
+
+            const bets = [];
+
+            const checkedSeriesTabs = document.querySelectorAll('.series-select:checked');
+
+            checkedSeriesTabs.forEach(seriesCheckbox => {
+                const baseSeries = parseInt(seriesCheckbox.value, 10);
+
+                // document.querySelectorAll('.series-row-compact').forEach((rowEl, index) => {
+                //     if (rowEl.querySelector('.row-selector').checked) {
+                //         const seriesStart = baseSeries + (index * 100);
+                //         const seriesNumbers = {};
+
+                //         for (const [key, qty] of Object.entries(gridPattern)) {
+                //             const [r, c] = key.split('-').map(Number);
+                //             seriesNumbers[seriesStart + (r * 10) + c] = qty;
+                //         }
+
+                //         bets.push({
+                //             series_start: seriesStart,
+                //             row_index: index,
+                //             numbers: seriesNumbers
+                //         });
+                //     }
+                // });
+
+                document.querySelectorAll('.series-row-compact').forEach((rowEl, index) => {
+                    if (rowEl.querySelector('.row-selector').checked) {
+                        const seriesStart = baseSeries + (index * 100);
+                        const seriesNumbers = {};
+
+                        for (const [key, qty] of Object.entries(gridPattern)) {
+                            const [r, c] = key.split('-').map(Number);
+                            seriesNumbers[seriesStart + (r * 10) + c] = qty;
+                        }
+
+                        // Get actual unit points - handles HIGH/LOW mode correctly
+                        const displayAmt = rowEl.querySelector('.display-amt')?.innerText || String(
+                            ticketPrice);
+                        let unitPoints = ticketPrice;
+                        if (displayAmt.includes('*')) {
+                            const [a, b] = displayAmt.split('*').map(v => parseInt(v.trim()));
+                            unitPoints = a * b; // e.g. 2 * 20 = 40
+                        }
+
+                        bets.push({
+                            series_start: seriesStart,
+                            row_index: index,
+                            unit_points: unitPoints, // ← HIGH/LOW mode points per number
+                            numbers: seriesNumbers
+                        });
+                    }
+                });
+            });
+
+            // 6. Send to Backend
+            fetch("{{ route('bet.place') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify({
+                        bets: bets,
+                        total_points: grandTotalPoints, // Base points per draw
+                        ticket_price: ticketPrice,
+                        draw_times: advanceDrawTimes // <--- SENDING ARRAY
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Bet Placed!',
+                            html: `<b>${data.message}</b><br>Draws: ${Math.max(1, advanceDrawTimes.length)}<br>Total Cost: <b>${data.total_points}</b>`,
+                            confirmButtonText: 'OK'
+                        }).then((result) => {
+                            if (result.isConfirmed) window.location.reload();
+                        });
+                        document.getElementById('btnClear').click();
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: data.message
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'System Error',
+                        text: 'Check console.'
+                    });
+                })
+                .finally(() => {
+                    btn.disabled = false;
+                    btn.innerHTML = 'Place Bet';
+                });
+        }
+    </script>
+
+    {{-- auto refresh if user on idle --}}
 
     {{-- Smart Auto-Refresh Logic (Optimized for Draw Platforms) --}}
     <script>

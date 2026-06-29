@@ -64,6 +64,9 @@
                 <div class="col-md-4">
                     <label class="fw-bold">Email</label>
                     <input type="email" name="email" value="{{ old('email') }}" class="form-control">
+                    <small class="text-warning">
+                        Email is not mandatory. You may skip this field.
+                    </small>
                     <small class="text-danger">
                         @error('email')
                             {{ $message }}
@@ -244,13 +247,14 @@
             if (!form.first_name.value.trim().match(/^[A-Za-z]+$/))
                 showError("first_name", "Enter valid first name");
 
-            /* Email */
+            /* Email (optional) */
             let email = form.email.value.trim();
-            if (email && !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/))
+            if (email !== '' && !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/))
                 showError("email", "Invalid email format");
 
-            /* Mobile */
-            if (!/^[0-9]{10}$/.test(form.mobile.value.trim()))
+            /* Mobile (optional) */
+            let mobile = form.mobile.value.trim();
+            if (mobile !== '' && !/^[0-9]{10}$/.test(mobile))
                 showError("mobile", "Mobile must be exactly 10 digits");
 
             /* Commission */

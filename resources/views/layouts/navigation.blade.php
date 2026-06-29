@@ -399,17 +399,18 @@
                             Accounts
                         </a>
 
-                        <a href="{{ route('bets.cancel.page') }}" class="top-nav-btn">
-                            Cancel
+                        <a href="{{ route('transactions.index') }}" class="top-nav-btn">
+                            TrDetails
                         </a>
 
                         <button class="top-nav-btn" data-bs-toggle="modal" data-bs-target="#passwordModal">
                             Password
                         </button>
 
-                        <a href="{{ route('transactions.index') }}" class="top-nav-btn">
-                            TrDetails
+                        <a href="{{ route('bets.cancel.page') }}" class="top-nav-btn">
+                            Cancel
                         </a>
+
 
                         <a href="#" class="top-nav-btn">
                             Reprint

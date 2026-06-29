@@ -11,39 +11,6 @@
             </span>
         </div>
 
-        {{-- ===== Filter Bar ===== --}}
-        <div class="card bg-dark border-secondary mb-3 px-3 py-2">
-            <div class="d-flex align-items-center flex-wrap gap-3">
-
-                <span class="fw-bold text-white" style="white-space: nowrap; font-size: 0.95rem;">
-                    <i class="fas fa-calendar-alt me-1 text-warning"></i> Filter by Date:
-                </span>
-
-                <form action="{{ route('transactions.index') }}" method="GET" id="dateFilterForm"
-                    class="d-flex align-items-center gap-2 m-0">
-
-                    <input type="date" name="date"
-                        class="form-control form-control-sm bg-dark border-secondary text-white"
-                        style="max-width: 175px; color-scheme: dark;" value="{{ $selectedDate }}"
-                        max="{{ \Carbon\Carbon::today()->format('Y-m-d') }}"
-                        onchange="document.getElementById('dateFilterForm').submit()">
-
-                    @if ($selectedDate !== \Carbon\Carbon::today()->format('Y-m-d'))
-                        <a href="{{ route('transactions.index') }}" class="btn btn-sm btn-outline-danger"
-                            style="white-space: nowrap;">
-                            <i class="fas fa-sync-alt me-1"></i> Reset
-                        </a>
-                    @endif
-                </form>
-
-                <span style="font-size: 0.88rem; color: #aaa;">
-                    Showing: <strong
-                        class="text-warning">{{ \Carbon\Carbon::parse($selectedDate)->format('d M Y') }}</strong>
-                </span>
-
-            </div>
-        </div>
-
         {{-- ===== Table ===== --}}
         <div class="table-responsive">
             <table class="table table-dark table-bordered table-hover align-middle text-center mb-0">
@@ -85,20 +52,11 @@
                         </tr>
 
                     @empty
-
                         <tr>
                             <td colspan="5" class="text-center py-5">
-
                                 <div class="text-secondary">
-
-                                    No records found for
-
-                                    <strong class="text-warning">
-                                        {{ \Carbon\Carbon::parse($selectedDate)->format('d M Y') }}
-                                    </strong>
-
+                                    No records found for today.
                                 </div>
-
                             </td>
                         </tr>
                     @endforelse

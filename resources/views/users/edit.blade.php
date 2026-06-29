@@ -37,6 +37,9 @@
                 <div class="col-md-4">
                     <label class="fw-bold">Email</label>
                     <input name="email" class="form-control" value="{{ old('email', $user->email) }}">
+                    <small class="text-warning">
+                        Email is not mandatory. You may skip this field.
+                    </small>
                     <small class="text-danger">
                         @error('email')
                             {{ $message }}
@@ -204,21 +207,99 @@
         {{ $transactions->links() }}
 
     </div>
-@endsection
-<script>
-    document.querySelectorAll(".capitalize").forEach(input => {
-        input.addEventListener("input", function() {
-            this.value = this.value.charAt(0).toUpperCase() + this.value.slice(1);
+    <script>
+        document.querySelectorAll(".capitalize").forEach(input => {
+            input.addEventListener("input", function() {
+                this.value = this.value.charAt(0).toUpperCase() + this.value.slice(1);
+            });
         });
-    });
 
-    document.querySelectorAll(".only-numbers").forEach(input => {
-        input.addEventListener("keypress", function(e) {
-            if (!/[0-9]/.test(e.key) || this.value.length >= 10) e.preventDefault();
+        document.querySelectorAll(".only-numbers").forEach(input => {
+            input.addEventListener("keypress", function(e) {
+                if (!/[0-9]/.test(e.key) || this.value.length >= 10)
+                    e.preventDefault();
+            });
+
+            input.addEventListener("paste", function(e) {
+                let paste = (e.clipboardData || window.clipboardData).getData('text');
+
+                if (!/^[0-9]{10}$/.test(paste))
+                    e.preventDefault();
+            });
         });
-        input.addEventListener("paste", function(e) {
-            let paste = (e.clipboardData || window.clipboardData).getData('text');
-            if (!/^[0-9]{10}$/.test(paste)) e.preventDefault();
+
+        /* ===== Edit Form Validation ===== */
+        document.getElementById("editUserForm").addEventListener("submit", function(e) {
+
+            let valid = true;
+            const form = this;
+
+            const showError = (field, msg) => {
+                valid = false;
+
+                const input = form.querySelector(`[name="${field}"]`);
+                const error = form.querySelector(`[data-error="${field}"]`);
+
+                if (input) input.classList.add("is-invalid");
+
+                if (error) {
+                    error.classList.remove("d-none");
+                    error.innerHTML = msg;
+                }
+            };
+
+            const clearError = (field) => {
+                const input = form.querySelector(`[name="${field}"]`);
+                const error = form.querySelector(`[data-error="${field}"]`);
+
+                if (input) input.classList.remove("is-invalid");
+
+                if (error) error.classList.add("d-none");
+            };
+
+            [
+                "first_name",
+                "email",
+                "mobile",
+                "username",
+                "commision"
+            ].forEach(clearError);
+
+            /* First Name */
+            if (!form.first_name.value.trim().match(/^[A-Za-z]+$/)) {
+                showError("first_name", "Enter valid first name");
+            }
+
+            /* Email Optional */
+            let email = form.email.value.trim();
+
+            if (email !== '' &&
+                !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+
+                showError("email", "Invalid email format");
+            }
+
+            /* Mobile Optional */
+            let mobile = form.mobile.value.trim();
+
+            if (mobile !== '' &&
+                !/^[0-9]{10}$/.test(mobile)) {
+
+                showError("mobile", "Mobile must be exactly 10 digits");
+            }
+
+            /* Commission */
+            let comm = form.commision.value.trim();
+
+            if (comm !== '' &&
+                (isNaN(comm) ||
+                    parseFloat(comm) < 0 ||
+                    parseFloat(comm) > 100)) {
+
+                showError("commision", "Commission must be between 0 and 100");
+            }
+
+            if (!valid) e.preventDefault();
         });
-    });
-</script>
+    </script>
+@endsection

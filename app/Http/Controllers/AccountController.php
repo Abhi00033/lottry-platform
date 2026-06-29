@@ -25,190 +25,108 @@ class AccountController extends Controller
             Carbon::today()->format('Y-m-d')
         );
 
-        // ── GET BETS ─────────────────────────────────────
+        // FETCH BETS
 
         $bets = Bet::where('user_id', $auth->id)
-            ->whereIn('status', ['won', 'lost', 'pending'])
-            ->whereBetween('draw_time', [
-                Carbon::parse($dateFrom)->startOfDay(),
-                Carbon::parse($dateTo)->endOfDay(),
+
+            ->whereIn('status', [
+                'won',
+                'lost',
+                'pending'
             ])
+
+            ->whereBetween('draw_time', [
+
+                Carbon::parse($dateFrom)->startOfDay(),
+
+                Carbon::parse($dateTo)->endOfDay(),
+
+            ])
+
             ->get();
 
+        //  DEFAULT COMMISSION
 
+        $commissionRate = $auth->commision ?? 5;
 
-        // ── BASIC VALUES ────────────────────────────────
+        //  REPORT 1 — POINT REPORT
 
-        $commissionRate = $auth->commision ?? 0;
+        // Total played points
+        $playPoints = $bets->sum('points');
 
+        // Business commission info only
+        $commission = ($playPoints * $commissionRate) / 100;
 
+        // Total winning payout
+        $winPoints = $bets
 
-        // ── REPORT 1 : POINT SUMMARY ───────────────────
+            ->where('status', 'won')
 
-        // Total Play Points
-        $totalPlayPoints = $bets->sum('points');
+            ->sum(function ($bet) {
 
-        // Commission Amount
-        $totalCommission = ($commissionRate / 100) * $totalPlayPoints;
+                return $bet->points * 90;
+            });
 
-        // Only Won Points
-        $wonPoints = $bets->where('status', 'won')->sum('points');
+        // Base net
+        $baseNet = $playPoints - $winPoints;
 
-        // Win After Commission Deduction
-        $totalWin = $wonPoints * ((100 - $commissionRate) / 100);
+        if ($baseNet < 0) {
+            $netReport1 = $baseNet + $commission;
+        } else {
+            $netReport1 = $baseNet - $commission;
+        }
+        // | REPORT 2 — AMOUNT REPORT
 
-        // REPORT 1 NET
-        $netFirst = $totalPlayPoints - $totalCommission - $totalWin;
+        // Total amount played
+        $playAmount = $bets->sum('total_amount');
 
+        // Total winning amount
+        $winAmount = $bets
 
+            ->where('status', 'won')
 
-        // ── REPORT 2 : AMOUNT SUMMARY ──────────────────
+            ->sum(function ($bet) {
 
-        // Total Play Amount
-        $totalPlay = $bets->sum('total_amount');
+                return $bet->points * 90;
+            });
 
-        // Original Win Amount WITHOUT commission deduction
-        $totalWinAmount = $wonPoints;
+        // Final net
+        $netReport2 = $playAmount - $winAmount;
 
-        // REPORT 2 NET
-        $netSecond = $totalPlay - $totalWinAmount;
-
-
-
-        // ── REPORT ARRAYS ──────────────────────────────
+        // REPORT ARRAYS
 
         $report1 = [
-            'play_point' => $totalPlayPoints,
-            'commission' => $totalCommission,
-            'win_point'  => $totalWin,
-            'net'        => $netFirst,
+
+            'play_point' => $playPoints,
+
+            'commission' => $commission,
+
+            'win_point'  => $winPoints,
+
+            'net'        => $netReport1,
         ];
 
         $report2 = [
-            'play_point' => $totalPlay,
-            'win_point'  => $totalWinAmount,
-            'net'        => $netSecond,
+
+            'play_point' => $playAmount,
+
+            'win_point'  => $winAmount,
+
+            'net'        => $netReport2,
         ];
 
+        //  RETURN VIEW
 
+        return view(
+            'lottry_pages.accounts.index',
+            compact(
 
-        // ── POSITIVE / NEGATIVE REPORTS ────────────────
+                'dateFrom',
+                'dateTo',
 
-        $positiveReports = [];
-        $negativeReports = [];
-
-        // REPORT 1
-        if ($netFirst >= 0) {
-            $positiveReports['report1'] = $report1;
-        } else {
-            $negativeReports['report1'] = $report1;
-        }
-
-        // REPORT 2
-        if ($netSecond >= 0) {
-            $positiveReports['report2'] = $report2;
-        } else {
-            $negativeReports['report2'] = $report2;
-        }
-
-
-
-        // ── COUNTS ─────────────────────────────────────
-
-        $totalBets = $bets->count();
-
-        $wonBets = $bets->where('status', 'won')->count();
-
-        $lostBets = $bets->where('status', 'lost')->count();
-
-        $pendingBets = $bets->where('status', 'pending')->count();
-
-        $pendingPoints = $bets->where('status', 'pending')->sum('points');
-
-
-
-        // ── RETURN VIEW ────────────────────────────────
-
-        return view('lottry_pages.accounts.index', compact(
-
-            'dateFrom',
-            'dateTo',
-
-            'commissionRate',
-
-            'totalPlayPoints',
-            'totalCommission',
-            'totalWin',
-            'netFirst',
-
-            'totalPlay',
-            'totalWinAmount',
-            'netSecond',
-
-            'positiveReports',
-            'negativeReports',
-
-            'totalBets',
-            'wonBets',
-            'lostBets',
-            'pendingBets',
-            'pendingPoints'
-        ));
+                'report1',
+                'report2'
+            )
+        );
     }
-
-    // public function accounts(Request $request): View
-    // {
-    //     $auth      = auth()->user();
-    //     $dateFrom  = $request->get('date_from', Carbon::today()->format('Y-m-d'));
-    //     $dateTo    = $request->get('date_to',   Carbon::today()->format('Y-m-d'));
-
-    //     // 1. UPDATED: Added 'pending' to the status list
-    //     $bets = Bet::where('user_id', $auth->id)
-    //         ->whereIn('status', ['won', 'lost', 'pending'])
-    //         ->whereBetween('draw_time', [
-    //             Carbon::parse($dateFrom)->startOfDay(),
-    //             Carbon::parse($dateTo)->endOfDay(),
-    //         ])
-    //         ->get();
-
-    //     // ── Calculations ──────────────────────────────
-    //     $totalPlayPoints  = $bets->sum('points');
-    //     $commissionRate   = $auth->commision ?? 0;
-    //     $totalCommission  = ($commissionRate / 100) * $totalPlayPoints;
-    //     $netMultiplier    = 100 - $commissionRate;
-
-    //     // 2. IMPORTANT: Only sum 'won' bets for the Win Points
-    //     $totalWin         = $bets->where('status', 'won')->sum('points') * $netMultiplier;
-    //     $netFirst         = $totalPlayPoints - $totalWin;
-
-    //     $totalPlay        = $bets->sum('total_amount');
-    //     $totalWinAmount   = $totalWin; // Match the calculated win
-    //     $netSecond        = $totalPlay - $totalWinAmount;
-
-    //     // ── Counts ────────────────────────────────────
-    //     $totalBets        = $bets->count();
-    //     $wonBets          = $bets->where('status', 'won')->count();
-    //     $lostBets         = $bets->where('status', 'lost')->count();
-    //     $pendingBets      = $bets->where('status', 'pending')->count(); // New Count
-    //     $pendingPoints    = $bets->where('status', 'pending')->sum('points'); // New Sum
-
-    //     return view('lottry_pages.accounts.index', compact(
-    //         'dateFrom',
-    //         'dateTo',
-    //         'totalPlayPoints',
-    //         'totalCommission',
-    //         'commissionRate',
-    //         'totalWin',
-    //         'netFirst',
-    //         'totalPlay',
-    //         'totalWinAmount',
-    //         'netSecond',
-    //         'totalBets',
-    //         'wonBets',
-    //         'lostBets',
-    //         'netMultiplier',
-    //         'pendingBets',
-    //         'pendingPoints'
-    //     ));
-    // }
 }
