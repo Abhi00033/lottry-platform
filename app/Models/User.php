@@ -134,4 +134,9 @@ class User extends Authenticatable
 
         return $play - $win - $commission;
     }
+
+    public function tickets()
+    {
+        return $this->hasMany(BetTicket::class);
+    }
 }

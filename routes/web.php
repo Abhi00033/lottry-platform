@@ -9,6 +9,7 @@ use App\Http\Controllers\ClaimController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LotteryController;
 use App\Http\Controllers\ResultController;
+use App\Http\Controllers\TicketController;
 use App\Http\Controllers\TransactionDetailController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Artisan;
@@ -47,6 +48,8 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
 Route::middleware(['auth'])->prefix('users')->name('users.')->group(function () {
 
     Route::get('/',           [UserController::class, 'index'])->name('index');
+    Route::get('/print', [UserController::class, 'print'])->name('print');
+
     Route::get('/create',     [UserController::class, 'create'])->name('create');
     Route::post('/store',     [UserController::class, 'store'])->name('store');
     Route::get('/{id}/edit',  [UserController::class, 'edit'])->name('edit');
@@ -58,6 +61,7 @@ Route::middleware(['auth'])->prefix('users')->name('users.')->group(function () 
 
 // Lottory Menu Pages
 Route::middleware(['auth'])->group(function () {
+    Route::get('/account/print', [AccountController::class, 'print'])->name('account.print');
     Route::get('/accounts',      [AccountController::class, 'accounts'])->name('account.index');
     Route::get('/transaction-details', [TransactionDetailController::class, 'index'])->name('transactions.index');
     Route::get('/cancel-bets', [TransactionDetailController::class, 'cancelPage'])->name('bets.cancel.page');
@@ -78,6 +82,14 @@ Route::middleware('auth')->group(function () {
 
 Route::middleware('auth')->group(function () {
     Route::post('/place-bet', [BetController::class, 'placeBet'])->name('bet.place');
+});
+
+Route::middleware('auth')->group(function () {
+    Route::get('/tickets/print', [TicketController::class, 'print'])
+        ->name('tickets.print.multiple');
+
+    Route::get('/tickets/{ticket}/print', [TicketController::class, 'print'])
+        ->name('tickets.print');
 });
 
 

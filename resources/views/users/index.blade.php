@@ -52,23 +52,69 @@
                         </div>
                     @endif
 
+                    {{-- From Date --}}
+                    @if (auth()->user()->role_id == 1)
+                        <div class="col-md-2 col-sm-6">
+                            <label class="text-white-50 small mb-1">
+                                <i class="fas fa-calendar me-1 text-warning"></i> From Date
+                            </label>
+
+                            <input type="date" name="start_date"
+                                class="form-control form-control-sm bg-dark text-white border-secondary"
+                                value="{{ request('start_date', now()->format('Y-m-d')) }}">
+                        </div>
+
+                        {{-- To Date --}}
+                        <div class="col-md-2 col-sm-6">
+                            <label class="text-white-50 small mb-1">
+                                <i class="fas fa-calendar me-1 text-warning"></i> To Date
+                            </label>
+
+                            <input type="date" name="end_date"
+                                class="form-control form-control-sm bg-dark text-white border-secondary"
+                                value="{{ request('end_date', now()->format('Y-m-d')) }}">
+                        </div>
+                    @endif
+
                     {{-- Buttons --}}
-                    <div class="col-md-4 col-sm-6 d-flex gap-2">
+                    <div class="col-md-12 d-flex gap-2 mt-2">
+
                         <button type="submit" class="btn btn-warning btn-sm fw-bold px-3">
                             <i class="fas fa-search me-1"></i> Search
                         </button>
-                        @if (!empty($search) || !empty($role))
+
+                        @if (auth()->user()->role_id == 1)
+                            <button type="submit" class="btn btn-success btn-sm fw-bold px-3"
+                                formaction="{{ route('users.print') }}" formtarget="_blank">
+
+                                <i class="fas fa-print me-1"></i>
+                                Print
+
+                            </button>
+                        @endif
+
+                        @if (request()->filled('search') ||
+                                request()->filled('role') ||
+                                request()->filled('start_date') ||
+                                request()->filled('end_date'))
                             <a href="{{ route('users.index') }}" class="btn btn-outline-danger btn-sm px-3">
-                                <i class="fas fa-times me-1"></i> Clear
+
+                                <i class="fas fa-undo me-1"></i>
+                                Reset
+
                             </a>
                         @endif
+
                     </div>
 
                 </div>
             </form>
 
             {{-- Result count --}}
-            @if (!empty($search) || !empty($role))
+            @if (request()->filled('search') ||
+                    request()->filled('role') ||
+                    request()->filled('start_date') ||
+                    request()->filled('end_date'))
                 <div class="mt-2">
                     <small class="text-white-50">
                         Found <strong class="text-warning">{{ $users->total() }}</strong> result(s)

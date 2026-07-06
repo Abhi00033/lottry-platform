@@ -339,7 +339,7 @@
 
                 <div class="text-uppercase text-center flex-grow-1">
                     WELCOME
-                    {{ strtoupper(Auth::user()->first_name ?? Auth::user()->name) }}
+                    {{ strtoupper(Auth::user()->username ?? Auth::user()->name) }}
 
                     (
                     {{ Auth::user()->unique_id ?? Auth::user()->username }}

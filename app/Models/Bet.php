@@ -17,6 +17,7 @@ class Bet extends Model
         'qty',
         'points',
         'transaction_id',
+        'ticket_id',
         'unit_price',     // <--- Added
         'total_amount',
         'draw_time',
@@ -45,5 +46,10 @@ class Bet extends Model
     public function transaction()
     {
         return $this->belongsTo(UserBalanceTransaction::class, 'transaction_id');
+    }
+
+    public function ticket()
+    {
+        return $this->belongsTo(BetTicket::class);
     }
 }

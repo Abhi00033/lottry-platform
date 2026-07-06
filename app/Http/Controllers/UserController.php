@@ -59,6 +59,111 @@ class UserController extends Controller
         return view('users.index', compact('users', 'roles', 'search', 'role'));
     }
 
+    public function print(Request $request): View
+    {
+        $auth = auth()->user();
+
+        $search = $request->get('search');
+        $role = $request->get('role');
+
+        $startDate = $request->get('start_date', now()->format('Y-m-d'));
+        $endDate   = $request->get('end_date', now()->format('Y-m-d'));
+
+        $query = User::with(['role', 'parent']);
+
+        //   Role Scope
+
+        if ($auth->role_id == 1) {
+
+            if ($role) {
+                $query->where('role_id', $role);
+            }
+        } elseif ($auth->role_id == 2) {
+
+            $query->where('parent_id', $auth->id);
+        } else {
+
+            $query->where('id', $auth->id);
+        }
+
+        // Search
+
+        if ($search) {
+
+            $query->where(function ($q) use ($search) {
+
+                $q->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('username', 'like', "%{$search}%")
+                    ->orWhere('mobile', 'like', "%{$search}%")
+                    ->orWhere('unique_id', 'like', "%{$search}%");
+            });
+        }
+
+        $users = $query->orderBy('first_name')->get();
+
+        // Report Calculation
+
+        $grandTotalBalance = 0;
+        $grandTotalPlay = 0;
+        $grandTotalWin = 0;
+        $grandTotalProfit = 0;
+
+        foreach ($users as $user) {
+
+            $betQuery = $user->bets()
+                ->whereDate('draw_time', '>=', $startDate)
+                ->whereDate('draw_time', '<=', $endDate);
+
+            $totalPlay = (clone $betQuery)->sum('total_amount');
+
+            $totalWinPoints = (clone $betQuery)
+                ->where('status', 'won')
+                ->sum('points');
+
+            $totalWin = $totalWinPoints * 90;
+
+            $commissionRate = (float) ($user->commision ?? 0);
+
+            $commissionAmount = $totalPlay * ($commissionRate / 100);
+
+            $houseProfit = $totalPlay - $totalWin - $commissionAmount;
+
+            // Balance as of selected end date
+            $balanceTransaction = UserBalanceTransaction::where('user_id', $user->id)
+                ->whereDate('created_at', '<=', $endDate)
+                ->latest('created_at')
+                ->latest('id')
+                ->first();
+
+            $reportBalance = $balanceTransaction
+                ? (float) $balanceTransaction->balance_after
+                : (float) $user->balance;
+
+            // Dynamic attributes for Blade
+            $user->report_balance = $reportBalance;
+            $user->report_total_play = $totalPlay;
+            $user->report_total_win = $totalWin;
+            $user->report_house_profit = $houseProfit;
+
+
+            $grandTotalBalance += $reportBalance;
+            $grandTotalPlay += $totalPlay;
+            $grandTotalWin += $totalWin;
+            $grandTotalProfit += $houseProfit;
+        }
+
+        return view('users.print', compact(
+            'users',
+            'startDate',
+            'endDate',
+            'grandTotalBalance',
+            'grandTotalPlay',
+            'grandTotalWin',
+            'grandTotalProfit'
+        ));
+    }
+
     public function oversight(Request $request, $id): View
     {
         $auth = auth()->user();

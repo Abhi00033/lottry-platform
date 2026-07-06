@@ -35,4 +35,9 @@ class UserBalanceTransaction extends Model
 
         return "{$prefix}-{$random}-{$paddedId}";
     }
+
+    public function tickets()
+    {
+        return $this->hasMany(BetTicket::class, 'transaction_id');
+    }
 }

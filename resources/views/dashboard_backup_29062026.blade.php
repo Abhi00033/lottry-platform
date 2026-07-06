@@ -740,13 +740,13 @@
 
                 <!-- LEFT -->
                 <div class="d-flex align-items-center gap-2">
-
-                    <button class="btn btn-success btn-sm" id="btnPrint" style="visibility: hidden;">
+                    <button class="btn btn-success btn-sm" id="btnPrint">
                         Print (F6)
                     </button>
 
-                    <button class="btn btn-success btn-sm" id="btnPlaceBet">
-                        Place Bet & Print
+                    <button class="btn btn-primary btn-sm fw-bold" id="btnPlaceBet"
+                        style="background-color: #0d6efd; border-color: #0d6efd;">
+                        <i class="fa-solid fa-check"></i> Place Bet
                     </button>
 
                     <button class="btn btn-danger btn-sm" id="btnClear">
@@ -810,8 +810,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="button" id="btnConfirmAdvance" class="btn btn-success fw-bold"
-                        data-bs-dismiss="modal">
+                    <button type="button" class="btn btn-success fw-bold" data-bs-dismiss="modal">
                         Confirm Selection (<span id="selectedDrawCount">0</span>)
                     </button>
                 </div>
@@ -1028,28 +1027,6 @@
                 }
 
                 return '';
-            }
-
-            function getSelectedPages() {
-
-                if (document.getElementById('checkSelectAllRows').checked) {
-                    return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-                }
-
-                const pages = [];
-
-                document.querySelectorAll('.row-selector').forEach((cb, index) => {
-                    if (cb.checked) {
-                        pages.push(index);
-                    }
-                });
-
-                // Fallback to active page
-                if (pages.length === 0 && activeSeriesRow !== null) {
-                    pages.push(activeSeriesRow);
-                }
-
-                return pages;
             }
 
             function saveCurrentPageData() {
@@ -1380,23 +1357,18 @@
 
                 cb.onchange = function() {
 
-                    const selectedPages = getSelectedPages();
+                    if (this.checked) {
 
-                    if (selectedPages.length === 0) {
+                        activeSeriesRow = index;
+                        pageOverrideMode = true;
+
+                    } else if (
+                        document.querySelectorAll('.row-selector:checked').length === 0
+                    ) {
 
                         activeSeriesRow = null;
                         pageOverrideMode = false;
-
-                    } else {
-
-                        // Keep the last clicked page visible
-                        activeSeriesRow = index;
-                        pageOverrideMode = true;
                     }
-
-                    // Sync ALL checkbox
-                    document.getElementById('checkSelectAllRows').checked =
-                        selectedPages.length === 10;
 
                     updateView();
                     updateAllStats();
@@ -1448,18 +1420,11 @@
 
                         } else {
 
-                            const selectedPages = getSelectedPages();
+                            if (!pageOverrides[activeSeriesRow]) {
+                                pageOverrides[activeSeriesRow] = {};
+                            }
 
-                            selectedPages.forEach(page => {
-
-                                if (!pageOverrides[page]) {
-                                    pageOverrides[page] = {};
-                                }
-
-                                pageOverrides[page][key] = value;
-
-                            });
-
+                            pageOverrides[activeSeriesRow][key] = value;
                         }
                     }
                 });
@@ -1598,25 +1563,13 @@
                     );
 
                     if (allRowsCB.checked && !pageOverrideMode) {
-
                         masterGridData[key] = 1;
-
                     } else {
-
-                        const selectedPages = getSelectedPages();
-
-                        selectedPages.forEach(page => {
-
-                            if (!pageOverrides[page]) {
-                                pageOverrides[page] = {};
-                            }
-
-                            pageOverrides[page][key] = 1;
-
-                        });
-
+                        if (!pageOverrides[activeSeriesRow]) {
+                            pageOverrides[activeSeriesRow] = {};
+                        }
+                        pageOverrides[activeSeriesRow][key] = 1;
                     }
-
                     input.style.backgroundColor = '#fff59d';
                     setTimeout(() => {
                         input.style.backgroundColor = '#fff';
@@ -1693,26 +1646,13 @@
                             );
 
                             if (allRowsCB.checked && !pageOverrideMode) {
-
                                 masterGridData[key] = 1;
-
                             } else {
-
-                                const selectedPages = getSelectedPages();
-
-                                selectedPages.forEach(page => {
-
-                                    if (!pageOverrides[page]) {
-                                        pageOverrides[page] = {};
-                                    }
-
-                                    pageOverrides[page][key] = 1;
-
-                                });
-
+                                if (!pageOverrides[activeSeriesRow]) {
+                                    pageOverrides[activeSeriesRow] = {};
+                                }
+                                pageOverrides[activeSeriesRow][key] = 1;
                             }
-
-
                             el.dataset.fpGroup = 'active'; // mark as FP group
                             linkedInputs.push(el);
                         }
@@ -1726,37 +1666,9 @@
                         el._fpSyncHandler = function() {
                             const newVal = this.value;
                             linkedInputs.forEach(other => {
-
                                 if (other !== this) {
                                     other.value = newVal;
                                 }
-
-                                const key = getCellKey(
-                                    other.dataset.row,
-                                    other.dataset.col
-                                );
-
-                                if (allRowsCB.checked && !pageOverrideMode) {
-
-                                    masterGridData[key] = newVal;
-
-                                } else {
-
-                                    const selectedPages = getSelectedPages();
-
-                                    selectedPages.forEach(page => {
-
-                                        if (!pageOverrides[page]) {
-                                            pageOverrides[page] = {};
-                                        }
-
-                                        pageOverrides[page][key] =
-                                            newVal;
-
-                                    });
-
-                                }
-
                             });
                             document.dispatchEvent(new Event('recalculateGridStats'));
                         };
@@ -1932,18 +1844,8 @@
                     );
                 }
 
-                // Advance Draw Multiplier
-                const drawMultiplier = Math.max(
-                    document.querySelectorAll('.advance-draw-cb:checked').length,
-                    1
-                );
-
-                // Final Totals
-                document.getElementById('totalQty').value =
-                    totalQty * drawMultiplier;
-
-                document.getElementById('totalPoints').value =
-                    totalPoints * drawMultiplier;
+                document.getElementById('totalQty').value = totalQty;
+                document.getElementById('totalPoints').value = totalPoints;
             }
             /* =====================================================
                FULL GRID + MASTER INPUT NAVIGATION
@@ -2129,22 +2031,15 @@
 
                     } else {
 
-                        const selectedPages = getSelectedPages();
+                        if (!pageOverrides[activeSeriesRow]) {
+                            pageOverrides[activeSeriesRow] = {};
+                        }
 
-                        selectedPages.forEach(page => {
-
-                            if (!pageOverrides[page]) {
-                                pageOverrides[page] = {};
-                            }
-
-                            if (value === '') {
-                                delete pageOverrides[page][key];
-                            } else {
-                                pageOverrides[page][key] = value;
-                            }
-
-                        });
-
+                        if (value === '') {
+                            delete pageOverrides[activeSeriesRow][key];
+                        } else {
+                            pageOverrides[activeSeriesRow][key] = value;
+                        }
                     }
 
                     updateAllStats();
@@ -2165,21 +2060,10 @@
                 new Event('recalculateGridStats')
             );
 
-
             // BET PLACEMENT LOGIC - (Frontend Calculated)
 
             document.getElementById('btnPlaceBet').addEventListener('click', function() {
                 placeBet();
-            });
-
-            // ADD THIS HERE
-            document.getElementById('btnConfirmAdvance').addEventListener('click', function() {
-
-                saveCurrentPageData();
-
-                updateView();
-
-                updateAllStats();
             });
 
             function placeBet() {
@@ -2361,28 +2245,23 @@
                     })
                     .then(response => response.json())
                     .then(data => {
-
                         if (data.status === 'success') {
-
-                            // Open one print page containing all tickets
-                            window.open(data.print_url, '_blank');
-
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Bet Placed!',
+                                html: `<b>${data.message}</b><br>Draws: ${Math.max(1, advanceDrawTimes.length)}<br>Total Cost: <b>${data.total_points}</b>`,
+                                confirmButtonText: 'OK'
+                            }).then((result) => {
+                                if (result.isConfirmed) window.location.reload();
+                            });
                             document.getElementById('btnClear').click();
-
-                            setTimeout(function() {
-                                location.reload();
-                            }, 1500);
-
                         } else {
-
                             Swal.fire({
                                 icon: 'error',
                                 title: 'Error',
                                 text: data.message
                             });
-
                         }
-
                     })
                     .catch(error => {
                         console.error('Error:', error);
@@ -2512,13 +2391,9 @@
         }
 
         function updateSelectedDrawCount() {
-
             const checked = document.querySelectorAll('.advance-draw-cb:checked');
-
             document.getElementById('selectedDrawCount').innerText = checked.length;
-
         }
-
 
         function selectAllDraws(enable) {
             document.querySelectorAll('.advance-draw-cb:not(:disabled)').forEach(cb => {

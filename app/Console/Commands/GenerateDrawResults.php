@@ -167,14 +167,18 @@ class GenerateDrawResults extends Command
                 $totalBetPoints = $betsOnNumber->sum('points');
 
                 $payoutScenarios[$fullNumber] = [
+
                     'points' => $totalBetPoints,
+
+                    'payout' => $totalBetPoints * 90,
+
                 ];
             }
 
             //   STEP 4 — REMOVE RECENT RESULTS
 
             $blockedSuffixes = Result::orderBy('draw_time', 'desc')
-                ->take(30)
+                ->take(10)
                 ->pluck('result_number')
                 ->map(function ($number) {
                     return $number % 100;
@@ -183,87 +187,175 @@ class GenerateDrawResults extends Command
                 ->toArray();
 
             /*
-        |--------------------------------------------------------------------------
-        | STEP 5 — SAFE NUMBERS ONLY
-        |--------------------------------------------------------------------------
-        |
-        | We only allow numbers where:
-        |
-        | payout <= collection
-        |
-        | so house never goes into loss
-        |--------------------------------------------------------------------------
-        */
+            |--------------------------------------------------------------------------
+            | STEP 5 — SAFE NUMBERS ONLY
+            |--------------------------------------------------------------------------
+            |
+            | We only allow numbers where:
+            |
+            | payout <= collection
+            |
+            | so house never goes into loss
+            |--------------------------------------------------------------------------
+            */
 
 
 
             $totalCollection = $bets->sum('points');
 
-            //   House keeps
-
-            $candidates = collect();
+            $safeCandidates   = collect();
+            $unsafeCandidates = collect();
+            $zeroBetNumbers   = collect();
 
             foreach ($payoutScenarios as $number => $data) {
 
                 $suffix = $number % 100;
 
+                // Skip recently used suffixes
                 if (in_array($suffix, $blockedSuffixes)) {
                     continue;
                 }
 
-                $candidates[$number] = [
-                    'points' => $data['points'],
-                    'payout' => $data['points'] * 90
+                $houseProfit = $totalCollection - $data['payout'];
+
+                $candidate = [
+
+                    'number'       => $number,
+
+                    'points'       => $data['points'],
+
+                    'payout'       => $data['payout'],
+
+                    'house_profit' => $houseProfit,
+
                 ];
+
+                // Numbers having no bets
+                if ($data['points'] == 0) {
+
+                    $zeroBetNumbers->push($candidate);
+                }
+
+                // House still makes profit
+                if ($houseProfit > 0) {
+
+                    $safeCandidates->push($candidate);
+                } else {
+
+                    $unsafeCandidates->push($candidate);
+                }
+            }
+
+            // Fallback if everything was blocked
+            if (
+                $safeCandidates->isEmpty() &&
+                $unsafeCandidates->isEmpty()
+            ) {
+
+                foreach ($payoutScenarios as $number => $data) {
+
+                    $houseProfit = $totalCollection - $data['payout'];
+
+                    $candidate = [
+
+                        'number'       => $number,
+
+                        'points'       => $data['points'],
+
+                        'payout'       => $data['payout'],
+
+                        'house_profit' => $houseProfit,
+
+                    ];
+
+                    if ($data['points'] == 0) {
+                        $zeroBetNumbers->push($candidate);
+                    }
+
+                    if ($houseProfit > 0) {
+                        $safeCandidates->push($candidate);
+                    } else {
+                        $unsafeCandidates->push($candidate);
+                    }
+                }
             }
 
 
-            //   Final fallback
 
-            if ($candidates->isEmpty()) {
-                $candidates = collect($payoutScenarios);
-            }
-
-            //   Winner logic
+            // ----------------------------------------------------------
+            // STEP 6 - WINNER SELECTION
+            // ----------------------------------------------------------
 
             if (!$allowWinner) {
 
-                $zeroBetNumbers = $candidates->filter(function ($data) {
-                    return $data['points'] == 0;
-                });
-
+                // Prefer numbers with no bets
                 if ($zeroBetNumbers->isNotEmpty()) {
 
                     $winningNumber = $zeroBetNumbers
-                        ->keys()
-                        ->random();
+                        ->random()['number'];
+                } elseif ($safeCandidates->isNotEmpty()) {
+
+                    // Otherwise choose any profitable number
+                    $winningNumber = $safeCandidates
+                        ->random()['number'];
                 } else {
 
-                    $winningNumber = $candidates
-                        ->keys()
-                        ->random();
+                    // If every number causes loss,
+                    // choose the one with minimum payout
+                    $winningNumber = $unsafeCandidates
+                        ->sortBy('payout')
+                        ->first()['number'];
                 }
             } else {
 
-                $betNumbers = $candidates
-                    ->filter(function ($data) {
-                        return $data['points'] > 0;
-                    })
-                    ->sortBy('payout');
+                // We want a winner but still keep house profitable
 
-                if ($betNumbers->isNotEmpty()) {
+                $betSafeNumbers = $safeCandidates
+                    ->where('points', '>', 0)
+                    ->sortByDesc('house_profit')
+                    ->values();
 
-                    $safeCandidates = $betNumbers
-                        ->take(max(1, ceil($betNumbers->count() * 0.8)));
+                if ($betSafeNumbers->isNotEmpty()) {
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Choose from Top 30% profitable numbers
+                    | This keeps the house profitable while
+                    | avoiding always selecting the same number.
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $poolSize = min(
+                        max(10, (int) ceil($betSafeNumbers->count() * 0.30)),
+                        $betSafeNumbers->count()
+                    );
+
+                    $winningNumber = $betSafeNumbers
+                        ->take($poolSize)
+                        ->random()['number'];
+                } elseif ($safeCandidates->isNotEmpty()) {
+
+                    /*
+                    |--------------------------------------------------------------------------
+                    | No profitable bet numbers.
+                    | Choose any profitable zero-bet number.
+                    |--------------------------------------------------------------------------
+                    */
 
                     $winningNumber = $safeCandidates
-                        ->keys()
-                        ->random();
+                        ->random()['number'];
                 } else {
 
-                    $winningNumber = $candidates
-                        ->keys()
-                        ->random();
+                    /*
+                    |--------------------------------------------------------------------------
+                    | Every possible result causes loss.
+                    | Minimize the loss.
+                    |--------------------------------------------------------------------------
+                    */
+
+                    $winningNumber = $unsafeCandidates
+                        ->sortBy('payout')
+                        ->first()['number'];
                 }
             }
 

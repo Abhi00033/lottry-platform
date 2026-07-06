@@ -70,11 +70,8 @@ class AccountController extends Controller
         // Base net
         $baseNet = $playPoints - $winPoints;
 
-        if ($baseNet < 0) {
-            $netReport1 = $baseNet + $commission;
-        } else {
-            $netReport1 = $baseNet - $commission;
-        }
+        // Always deduct commission from the final result
+        $netReport1 = $baseNet - $commission;
         // | REPORT 2 — AMOUNT REPORT
 
         // Total amount played
@@ -128,5 +125,86 @@ class AccountController extends Controller
                 'report2'
             )
         );
+    }
+
+    public function print(Request $request): View
+    {
+        $auth = auth()->user();
+
+        $dateFrom = $request->get(
+            'date_from',
+            Carbon::today()->format('Y-m-d')
+        );
+
+        $dateTo = $request->get(
+            'date_to',
+            Carbon::today()->format('Y-m-d')
+        );
+
+        $bets = Bet::where('user_id', $auth->id)
+
+            ->whereIn('status', [
+                'won',
+                'lost',
+                'pending'
+            ])
+
+            ->whereBetween('draw_time', [
+
+                Carbon::parse($dateFrom)->startOfDay(),
+
+                Carbon::parse($dateTo)->endOfDay(),
+
+            ])
+
+            ->get();
+
+        $commissionRate = $auth->commision ?? 5;
+
+        $playPoints = $bets->sum('points');
+
+        $commission = ($playPoints * $commissionRate) / 100;
+
+        $winPoints = $bets
+            ->where('status', 'won')
+            ->sum(function ($bet) {
+                return $bet->points * 90;
+            });
+
+        $baseNet = $playPoints - $winPoints;
+
+        $netReport1 = $baseNet - $commission;
+
+        $playAmount = $bets->sum('total_amount');
+
+        $winAmount = $bets
+            ->where('status', 'won')
+            ->sum(function ($bet) {
+                return $bet->points * 90;
+            });
+
+        $netReport2 = $playAmount - $winAmount;
+
+        $report1 = [
+
+            'play_point' => $playPoints,
+
+            'commission' => $commission,
+
+            'win_point'  => $winPoints,
+
+            'net'        => $netReport1,
+        ];
+
+        $report2 = [
+
+            'play_point' => $playAmount,
+
+            'win_point'  => $winAmount,
+
+            'net'        => $netReport2,
+        ];
+
+        return view('lottry_pages.accounts.print', compact('auth', 'dateFrom', 'dateTo', 'report1', 'report2'));
     }
 }

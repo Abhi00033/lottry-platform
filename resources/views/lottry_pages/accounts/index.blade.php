@@ -288,9 +288,15 @@
                             Reset
                         </a>
 
-                        <button type="button" onclick="window.print()" class="btn btn-success compact-btn">
+                        <a href="{{ route('account.print', [
+                            'date_from' => $dateFrom,
+                            'date_to' => $dateTo,
+                        ]) }}"
+                            target="_blank" class="btn btn-success compact-btn">
+
                             Print
-                        </button>
+
+                        </a>
 
                     </div>
 
