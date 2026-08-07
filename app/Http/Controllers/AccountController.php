@@ -10,7 +10,6 @@ use Carbon\Carbon;
 
 class AccountController extends Controller
 {
-
     public function accounts(Request $request): View
     {
         $auth = auth()->user();
@@ -25,102 +24,66 @@ class AccountController extends Controller
             Carbon::today()->format('Y-m-d')
         );
 
-        // FETCH BETS
-
+        // FETCH ALL BETS IN DATE RANGE
         $bets = Bet::where('user_id', $auth->id)
-
             ->whereIn('status', [
                 'won',
+                'claimed',
                 'lost',
                 'pending'
             ])
-
             ->whereBetween('draw_time', [
-
                 Carbon::parse($dateFrom)->startOfDay(),
-
                 Carbon::parse($dateTo)->endOfDay(),
-
             ])
-
             ->get();
-
-        //  DEFAULT COMMISSION
 
         $commissionRate = $auth->commision ?? 5;
 
-        //  REPORT 1 — POINT REPORT
-
-        // Total played points
+        // REPORT 1 — POINT REPORT
         $playPoints = $bets->sum('points');
-
-        // Business commission info only
         $commission = ($playPoints * $commissionRate) / 100;
 
-        // Total winning payout
+        // ONLY COUNT CLAIMED WINNINGS TOWARDS PAYOUT REPORT
         $winPoints = $bets
-
-            ->where('status', 'won')
-
+            ->where('status', 'claimed')
             ->sum(function ($bet) {
-
                 return $bet->points * 90;
             });
 
-        // Base net
         $baseNet = $playPoints - $winPoints;
-
-        // Always deduct commission from the final result
         $netReport1 = $baseNet - $commission;
-        // | REPORT 2 — AMOUNT REPORT
 
-        // Total amount played
+        // REPORT 2 — AMOUNT REPORT
         $playAmount = $bets->sum('total_amount');
 
-        // Total winning amount
+        // ONLY COUNT CLAIMED WINNINGS
         $winAmount = $bets
-
-            ->where('status', 'won')
-
+            ->where('status', 'claimed')
             ->sum(function ($bet) {
-
                 return $bet->points * 90;
             });
 
-        // Final net
         $netReport2 = $playAmount - $winAmount;
 
-        // REPORT ARRAYS
-
         $report1 = [
-
             'play_point' => $playPoints,
-
             'commission' => $commission,
-
             'win_point'  => $winPoints,
-
             'net'        => $netReport1,
         ];
 
         $report2 = [
-
             'play_point' => $playAmount,
-
             'win_point'  => $winAmount,
-
             'net'        => $netReport2,
         ];
-
-        //  RETURN VIEW
 
         return view(
             'lottry_pages.accounts.index',
             compact(
-
                 'dateFrom',
                 'dateTo',
-
                 'report1',
                 'report2'
             )
@@ -142,43 +105,38 @@ class AccountController extends Controller
         );
 
         $bets = Bet::where('user_id', $auth->id)
-
             ->whereIn('status', [
                 'won',
+                'claimed',
                 'lost',
                 'pending'
             ])
-
             ->whereBetween('draw_time', [
-
                 Carbon::parse($dateFrom)->startOfDay(),
-
                 Carbon::parse($dateTo)->endOfDay(),
-
             ])
-
             ->get();
 
         $commissionRate = $auth->commision ?? 5;
 
         $playPoints = $bets->sum('points');
-
         $commission = ($playPoints * $commissionRate) / 100;
 
+        // ONLY COUNT CLAIMED WINNINGS
         $winPoints = $bets
-            ->where('status', 'won')
+            ->where('status', 'claimed')
             ->sum(function ($bet) {
                 return $bet->points * 90;
             });
 
         $baseNet = $playPoints - $winPoints;
-
         $netReport1 = $baseNet - $commission;
 
         $playAmount = $bets->sum('total_amount');
 
+        // ONLY COUNT CLAIMED WINNINGS
         $winAmount = $bets
-            ->where('status', 'won')
+            ->where('status', 'claimed')
             ->sum(function ($bet) {
                 return $bet->points * 90;
             });
@@ -186,22 +144,15 @@ class AccountController extends Controller
         $netReport2 = $playAmount - $winAmount;
 
         $report1 = [
-
             'play_point' => $playPoints,
-
             'commission' => $commission,
-
             'win_point'  => $winPoints,
-
             'net'        => $netReport1,
         ];
 
         $report2 = [
-
             'play_point' => $playAmount,
-
             'win_point'  => $winAmount,
-
             'net'        => $netReport2,
         ];
 

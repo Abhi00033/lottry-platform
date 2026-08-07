@@ -3,42 +3,43 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
+use Illuminate\Contracts\Console\Isolatable;
 use App\Models\SeriesMaster;
 use App\Models\Bet;
 use App\Models\Result;
 use App\Models\UserBalanceTransaction;
 use App\Models\User;
+use App\Models\BetTicket;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
-class GenerateDrawResults extends Command
+
+class GenerateDrawResults extends Command implements Isolatable
 {
     protected $signature   = 'draw:generate-results';
-    protected $description = 'Automate 15-min draw results with profitability control';
+    protected $description = 'Automate 15-min draw results with catch-up logic and guaranteed profit control';
 
-    // Only one constant kept — used as fallback ONLY when a user has no commission set in DB.
-    // All actual payouts and risk calculations use each agent's own commission rate from DB.
     const DEFAULT_COMMISSION = 0;
-
-    // REMOVED: PAYOUT_MULTIPLIER = 90  → was hardcoded, wrong, replaced by per-agent rate
-    // REMOVED: TARGET_HOUSE_PROFIT_PERCENT = 40 → was causing 0/1 repeat bug
 
     public function handle()
     {
         $now       = Carbon::now();
-        $startTime = config('app.draw_start');
-        $endTime   = config('app.draw_end');
+        $startTime = config('app.draw_start'); // e.g., '09:00'
+        $endTime   = config('app.draw_end');   // e.g., '22:00'
 
-        if ($now->format('H:i') < $startTime || $now->format('H:i') > $endTime) {
-            $this->info("Outside draw hours ($startTime - $endTime). Skipping.");
+        $todayStart = Carbon::parse($now->format('Y-m-d') . ' ' . $startTime);
+        $todayEnd   = Carbon::parse($now->format('Y-m-d') . ' ' . $endTime);
+
+        // Outside operating hours check
+        if ($now->lessThan($todayStart)) {
+            $this->info("Before start time ($startTime). Skipping.");
             return;
         }
 
-        $minutes      = $now->minute;
-        $targetMinute = floor($minutes / 15) * 15;
-        $drawTime     = $now->copy()->minute($targetMinute)->second(0);
-
-        $this->info("Generating results for Draw Time: " . $drawTime->format('Y-m-d H:i:s'));
+        // Upper limit cap for draw processing
+        $latestPossible = $now->greaterThan($todayEnd) ? $todayEnd->copy() : $now->copy();
+        $targetMinute   = floor($latestPossible->minute / 15) * 15;
+        $latestDrawTime = $latestPossible->second(0)->minute($targetMinute);
 
         $seriesList = SeriesMaster::all();
 
@@ -47,69 +48,51 @@ class GenerateDrawResults extends Command
             return;
         }
 
-        foreach ($seriesList as $mainSeries) {
-            $winnerRanges = collect(range(0, 9))
-                ->shuffle()
-                ->take(rand(1, 2))
-                ->toArray();
+        // -------------------------------------------------------------------------
+        // CATCH-UP LOOP: Walk through all 15-min slots from start of day to current slot
+        // -------------------------------------------------------------------------
+        $currentDrawToProcess = $todayStart->copy();
 
-            for ($i = 0; $i < 10; $i++) {
+        while ($currentDrawToProcess->lessThanOrEqualTo($latestDrawTime)) {
 
-                $subSeriesStart = (int) $mainSeries->start + ($i * 100);
+            foreach ($seriesList as $mainSeries) {
+                for ($i = 0; $i < 10; $i++) {
+                    $subSeriesStart = (int) $mainSeries->start + ($i * 100);
 
-                $exists = Result::where('draw_time', $drawTime)
-                    ->where('series', $subSeriesStart)
-                    ->exists();
+                    $exists = Result::where('draw_time', $currentDrawToProcess)
+                        ->where('series', $subSeriesStart)
+                        ->exists();
 
-                if ($exists) {
-                    $this->line("Result already exists for $subSeriesStart. Skipping.");
-                    continue;
-                }
+                    if ($exists) {
+                        continue;
+                    }
 
-                try {
-                    $this->processSubSeriesResult($mainSeries, $subSeriesStart, $drawTime, in_array($i, $winnerRanges));
-                } catch (\Throwable $e) {
-                    $this->error("Error processing $subSeriesStart: " . $e->getMessage());
-                    \Illuminate\Support\Facades\Log::error("DrawResult Error [$subSeriesStart]: " . $e->getMessage());
+                    $this->warn("Processing draw for {$subSeriesStart} at {$currentDrawToProcess->format('Y-m-d H:i:s')}");
+
+                    try {
+                        $this->processSubSeriesResult(
+                            $mainSeries,
+                            $subSeriesStart,
+                            $currentDrawToProcess->copy()
+                        );
+                    } catch (\Throwable $e) {
+                        $this->error("Error processing {$subSeriesStart} at {$currentDrawToProcess->format('H:i')}: " . $e->getMessage());
+                        \Illuminate\Support\Facades\Log::error("DrawResult Error [{$subSeriesStart} @ {$currentDrawToProcess}]: " . $e->getMessage());
+                    }
                 }
             }
+
+            $currentDrawToProcess->addMinutes(15);
         }
 
         $this->info("Execution Completed!");
     }
 
-    // -------------------------------------------------------------------------
-    // Helper: resolve commission rate for any user/agent
-    //
-    // Priority:
-    //   1. users.commision column value set by admin  → use that
-    //   2. Not set / null / zero                      → use DEFAULT_COMMISSION (5%)
-    //
-    // Called in BOTH Step 2 (risk estimation) and Step 7 (actual payout)
-    // so both are always using the exact same rate — no mismatch possible.
-    // -------------------------------------------------------------------------
-
-
-    private function getCommissionRate($user): float
+    private function processSubSeriesResult($mainSeries, $subSeriesStart, $drawTime)
     {
-        if (
-            $user &&
-            !is_null($user->commision) &&
-            (float) $user->commision > 0
-        ) {
-            return (float) $user->commision;
-        }
+        DB::transaction(function () use ($mainSeries, $subSeriesStart, $drawTime) {
 
-        return self::DEFAULT_COMMISSION;
-    }
-
-    private function processSubSeriesResult($mainSeries, $subSeriesStart, $drawTime, $allowWinner)
-    {
-
-        DB::transaction(function () use ($mainSeries, $subSeriesStart, $drawTime, $allowWinner) {
-
-            //  STEP 1 — FETCH ALL PENDING BETS
-
+            // STEP 1 — FETCH ALL PENDING BETS
             $bets = Bet::where('series_id', $mainSeries->id)
                 ->where('draw_time', $drawTime)
                 ->where('status', 'pending')
@@ -118,11 +101,25 @@ class GenerateDrawResults extends Command
                 ->lockForUpdate()
                 ->get();
 
-            //   NO BETS PLACED
-
+            // ---------------------------------------------------------------------
+            // SCENARIO A: NO BETS PLACED ANYWHERE IN THIS SUB-SERIES
+            // ---------------------------------------------------------------------
             if ($bets->isEmpty()) {
+                // Fetch blocked suffixes relative to drawTime
+                $blockedSuffixes = Result::where('series', $subSeriesStart)
+                    ->where('draw_time', '<', $drawTime)
+                    ->orderByDesc('draw_time')
+                    ->take(5)
+                    ->pluck('result_number')
+                    ->map(fn($n) => $n % 100)
+                    ->unique()
+                    ->toArray();
 
-                $randomNumber = $subSeriesStart + rand(0, 99);
+                do {
+                    $randomSuffix = rand(0, 99);
+                } while (in_array($randomSuffix, $blockedSuffixes) && count($blockedSuffixes) < 100);
+
+                $randomNumber = $subSeriesStart + $randomSuffix;
 
                 Result::create([
                     'draw_time'     => $drawTime,
@@ -131,87 +128,49 @@ class GenerateDrawResults extends Command
                 ]);
 
                 $this->info("No bets for {$subSeriesStart}. Random Result: {$randomNumber}");
-
                 return;
             }
 
+            // ---------------------------------------------------------------------
+            // SCENARIO B: BETS EXIST — CALCULATE PAYOUT SCENARIOS
+            // ---------------------------------------------------------------------
+
             // STEP 2 — TOTAL COLLECTION
+            $totalCollection = $bets->sum('points');
 
-            $totalPointsCollected = $bets->sum('points');
-
-            // STEP 3 — CALCULATE PAYOUT PER NUMBER
-            // | REAL GAME LOGIC:
-            // | points already contains:
-            // | amount × page multiplier
-            // |
-            // | Final payout:
-            // | points × 90
-
+            // STEP 3 — CALCULATE PAYOUT PER NUMBER (points × 90)
             $payoutScenarios = [];
-
             for ($n = 0; $n <= 99; $n++) {
-
                 $fullNumber = $subSeriesStart + $n;
-
-                $betsOnNumber = $bets->where(
-                    'number',
-                    (string) $fullNumber
-                );
-
-                //    | IMPORTANT:
-                //     | ONLY NUMBERS WITH ACTUAL BETS
-
-
-
-
+                $betsOnNumber = $bets->where('number', (string) $fullNumber);
                 $totalBetPoints = $betsOnNumber->sum('points');
 
                 $payoutScenarios[$fullNumber] = [
-
                     'points' => $totalBetPoints,
-
                     'payout' => $totalBetPoints * 90,
-
                 ];
             }
 
-            //   STEP 4 — REMOVE RECENT RESULTS
-
-            $blockedSuffixes = Result::orderBy('draw_time', 'desc')
-                ->take(10)
+            // STEP 4 — FETCH RECENT DRAW SUFFIXES (Relative to target $drawTime)
+            $blockedSuffixes = Result::where('series', $subSeriesStart)
+                ->where('draw_time', '<', $drawTime)
+                ->orderByDesc('draw_time')
+                ->take(5)
                 ->pluck('result_number')
-                ->map(function ($number) {
-                    return $number % 100;
-                })
+                ->map(fn($n) => $n % 100)
                 ->unique()
                 ->toArray();
 
-            /*
-            |--------------------------------------------------------------------------
-            | STEP 5 — SAFE NUMBERS ONLY
-            |--------------------------------------------------------------------------
-            |
-            | We only allow numbers where:
-            |
-            | payout <= collection
-            |
-            | so house never goes into loss
-            |--------------------------------------------------------------------------
-            */
-
-
-
-            $totalCollection = $bets->sum('points');
-
-            $safeCandidates   = collect();
-            $unsafeCandidates = collect();
-            $zeroBetNumbers   = collect();
+            // STEP 5 — CATEGORIZE ALL 100 NUMBERS
+            $idealWinners      = collect(); // Players win AND House Profit >= 20%
+            $acceptableWinners = collect(); // Players win AND House Profit >= 0% (No house loss)
+            $zeroBetNumbers    = collect(); // Numbers with 0 bets placed
+            $lossCandidates    = collect(); // House loses money (Payout > Collection)
 
             foreach ($payoutScenarios as $number => $data) {
-
                 $suffix = $number % 100;
 
-                // Skip recently used suffixes
+                // Filter out recently drawn suffixes
                 if (in_array($suffix, $blockedSuffixes)) {
                     continue;
                 }
@@ -219,218 +178,104 @@ class GenerateDrawResults extends Command
                 $houseProfit = $totalCollection - $data['payout'];
 
                 $candidate = [
-
                     'number'       => $number,
-
                     'points'       => $data['points'],
-
                     'payout'       => $data['payout'],
-
                     'house_profit' => $houseProfit,
-
                 ];
 
-                // Numbers having no bets
-                if ($data['points'] == 0) {
-
+                if ($data['points'] > 0) {
+                    if ($houseProfit >= ($totalCollection * 0.20)) {
+                        $idealWinners->push($candidate);
+                    } elseif ($houseProfit >= 0) {
+                        $acceptableWinners->push($candidate);
+                    } else {
+                        $lossCandidates->push($candidate);
+                    }
+                } else {
                     $zeroBetNumbers->push($candidate);
                 }
-
-                // House still makes profit
-                if ($houseProfit > 0) {
-
-                    $safeCandidates->push($candidate);
-                } else {
-
-                    $unsafeCandidates->push($candidate);
-                }
             }
 
-            // Fallback if everything was blocked
-            if (
-                $safeCandidates->isEmpty() &&
-                $unsafeCandidates->isEmpty()
-            ) {
-
+            // FALLBACK: If anti-repeat filter blocked all numbers, re-evaluate without filter
+            if ($idealWinners->isEmpty() && $acceptableWinners->isEmpty() && $zeroBetNumbers->isEmpty()) {
                 foreach ($payoutScenarios as $number => $data) {
-
                     $houseProfit = $totalCollection - $data['payout'];
-
                     $candidate = [
-
                         'number'       => $number,
-
                         'points'       => $data['points'],
-
                         'payout'       => $data['payout'],
-
                         'house_profit' => $houseProfit,
-
                     ];
 
-                    if ($data['points'] == 0) {
+                    if ($data['points'] > 0) {
+                        if ($houseProfit >= 0) {
+                            $acceptableWinners->push($candidate);
+                        } else {
+                            $lossCandidates->push($candidate);
+                        }
+                    } else {
                         $zeroBetNumbers->push($candidate);
                     }
-
-                    if ($houseProfit > 0) {
-                        $safeCandidates->push($candidate);
-                    } else {
-                        $unsafeCandidates->push($candidate);
-                    }
                 }
             }
 
-
-
-            // ----------------------------------------------------------
-            // STEP 6 - WINNER SELECTION
-            // ----------------------------------------------------------
-
-            if (!$allowWinner) {
-
-                // Prefer numbers with no bets
-                if ($zeroBetNumbers->isNotEmpty()) {
-
-                    $winningNumber = $zeroBetNumbers
-                        ->random()['number'];
-                } elseif ($safeCandidates->isNotEmpty()) {
-
-                    // Otherwise choose any profitable number
-                    $winningNumber = $safeCandidates
-                        ->random()['number'];
-                } else {
-
-                    // If every number causes loss,
-                    // choose the one with minimum payout
-                    $winningNumber = $unsafeCandidates
-                        ->sortBy('payout')
-                        ->first()['number'];
-                }
+            // ---------------------------------------------------------------------
+            // STEP 6 — SMART WINNER SELECTION HIERARCHY
+            // ---------------------------------------------------------------------
+            if ($idealWinners->isNotEmpty()) {
+                $winningNumber = $idealWinners->random()['number'];
+            } elseif ($acceptableWinners->isNotEmpty()) {
+                // Guarantees player wins when whole range is covered (Profit >= 0)
+                $winningNumber = $acceptableWinners->random()['number'];
+            } elseif ($zeroBetNumbers->isNotEmpty()) {
+                $winningNumber = $zeroBetNumbers->random()['number'];
             } else {
-
-                // We want a winner but still keep house profitable
-
-                $betSafeNumbers = $safeCandidates
-                    ->where('points', '>', 0)
-                    ->sortByDesc('house_profit')
-                    ->values();
-
-                if ($betSafeNumbers->isNotEmpty()) {
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Choose from Top 30% profitable numbers
-                    | This keeps the house profitable while
-                    | avoiding always selecting the same number.
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $poolSize = min(
-                        max(10, (int) ceil($betSafeNumbers->count() * 0.30)),
-                        $betSafeNumbers->count()
-                    );
-
-                    $winningNumber = $betSafeNumbers
-                        ->take($poolSize)
-                        ->random()['number'];
-                } elseif ($safeCandidates->isNotEmpty()) {
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | No profitable bet numbers.
-                    | Choose any profitable zero-bet number.
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $winningNumber = $safeCandidates
-                        ->random()['number'];
-                } else {
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | Every possible result causes loss.
-                    | Minimize the loss.
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $winningNumber = $unsafeCandidates
-                        ->sortBy('payout')
-                        ->first()['number'];
-                }
+                $winningNumber = $lossCandidates->sortBy('payout')->first()['number'];
             }
 
-            //    STEP 7 — SAVE RESULT
-
+            // STEP 7 — SAVE RESULT
             Result::create([
                 'draw_time'     => $drawTime,
                 'series'        => $subSeriesStart,
                 'result_number' => $winningNumber,
             ]);
 
-            //   STEP 8 — PROCESS WINNERS / LOSERS
-
+            // STEP 8 — PROCESS WINNERS & LOSERS (ONLY UPDATE TICKET CLAIM AMOUNT, NOT USER BALANCE)
             foreach ($bets as $bet) {
-
                 if ($bet->status !== 'pending') {
                     continue;
                 }
 
-                // WINNER
-
                 if ((int) $bet->number === (int) $winningNumber) {
-
                     $user = $bet->user ?? User::find($bet->user_id);
-
                     if (!$user) {
-
-                        $bet->update([
-                            'status' => 'lost'
-                        ]);
-
+                        $bet->update(['status' => 'lost']);
                         continue;
                     }
 
-                    // FINAL WIN LOGIC  points × 90
-
                     $winAmount = $bet->points * 90;
 
-                    $bet->update([
-                        'status' => 'won'
-                    ]);
+                    $bet->update(['status' => 'won']);
 
-                    $user->increment(
-                        'balance',
-                        $winAmount
-                    );
-
-                    //  COMMISSION IS SEPARATE BUSINESS LOGIC
-
-                    $commissionRate = $this->getCommissionRate($user);
-
-                    UserBalanceTransaction::create([
-
-                        'user_id'       => $user->id,
-                        'type'          => 'credit',
-                        'amount'        => $winAmount,
-                        'balance_after' => $user->fresh()->balance,
-
-                        'remarks'       =>
-                        "WIN: Draw " .
-                            $drawTime->format('h:i A') .
-                            " | No: {$winningNumber}" .
-                            " | Win: {$winAmount}" .
-                            " | Commission: {$commissionRate}%"
-                    ]);
-                }
-
-                //  LOSER
-                else {
-
-                    $bet->update([
-                        'status' => 'lost'
-                    ]);
+                    // Prize amount is added to BetTicket ONLY.
+                    // User wallet balance is untouched until claimed on the Claim Page.
+                    if ($bet->ticket_id) {
+                        BetTicket::where('id', $bet->ticket_id)
+                            ->increment('claim_amount', $winAmount);
+                    }
+                } else {
+                    $bet->update(['status' => 'lost']);
                 }
             }
         });
+    }
+
+    private function getCommissionRate($user): float
+    {
+        if ($user && !is_null($user->commision) && (float) $user->commision > 0) {
+            return (float) $user->commision;
+        }
+        return self::DEFAULT_COMMISSION;
     }
 }

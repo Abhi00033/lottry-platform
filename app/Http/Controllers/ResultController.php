@@ -14,10 +14,11 @@ class ResultController extends Controller
         if ($request->has('reset')) {
             return redirect()->route('results.index');
         }
+
         // 1. Get the date from request or default to today
         $selectedDate = $request->input('date', Carbon::today()->format('Y-m-d'));
 
-        // 2. Fetch series to build the horizontal headers (1000-1099, 1100-1199, etc.)
+        // 2. Fetch series to build the horizontal headers
         $seriesList = SeriesMaster::orderBy('start', 'asc')->get();
 
         // 3. Fetch results for the selected date, grouped by time
@@ -25,7 +26,8 @@ class ResultController extends Controller
             ->orderBy('draw_time', 'desc')
             ->get()
             ->groupBy(function ($item) {
-                return $item->draw_time->format('h:i A');
+                // Safely parse draw_time in case it's a string or Carbon object
+                return Carbon::parse($item->draw_time)->format('h:i A');
             });
 
         return view('lottry_pages.results.index', compact('results', 'seriesList', 'selectedDate'));

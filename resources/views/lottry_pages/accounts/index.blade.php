@@ -288,15 +288,11 @@
                             Reset
                         </a>
 
-                        <a href="{{ route('account.print', [
-                            'date_from' => $dateFrom,
-                            'date_to' => $dateTo,
-                        ]) }}"
-                            target="_blank" class="btn btn-success compact-btn">
-
+                        <button type="button"
+                            onclick="printAccountReport('{{ route('account.print', ['date_from' => $dateFrom, 'date_to' => $dateTo]) }}')"
+                            class="btn btn-success compact-btn">
                             Print
-
-                        </a>
+                        </button>
 
                     </div>
 
@@ -425,4 +421,28 @@
         </div>
 
     </div>
+
+    {{-- Silent Print Handler --}}
+    <script>
+        function printAccountReport(reportUrl) {
+            let printFrame = document.getElementById('silentPrintIframe');
+            if (!printFrame) {
+                printFrame = document.createElement('iframe');
+                printFrame.id = 'silentPrintIframe';
+                printFrame.style.display = 'none';
+                document.body.appendChild(printFrame);
+            }
+
+            printFrame.src = reportUrl;
+
+            printFrame.onload = function() {
+                try {
+                    printFrame.contentWindow.focus();
+                    printFrame.contentWindow.print();
+                } catch (e) {
+                    console.warn('Silent report print failed:', e);
+                }
+            };
+        }
+    </script>
 @endsection

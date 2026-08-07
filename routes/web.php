@@ -9,6 +9,7 @@ use App\Http\Controllers\ClaimController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\LotteryController;
 use App\Http\Controllers\ResultController;
+use App\Http\Controllers\ReprintController;
 use App\Http\Controllers\TicketController;
 use App\Http\Controllers\TransactionDetailController;
 use App\Http\Controllers\UserController;
@@ -43,6 +44,11 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
+Route::middleware('auth')->group(function () {
+    Route::get('/dashboard/check-latest-result', [DashboardController::class, 'checkLatestResult'])
+        ->name('dashboard.checkLatestResult');
+});
+
 // 🔹 USER MANAGEMENT ROUTES
 //     (No middleware restrictions here – we will restrict via view logic)
 Route::middleware(['auth'])->prefix('users')->name('users.')->group(function () {
@@ -61,16 +67,38 @@ Route::middleware(['auth'])->prefix('users')->name('users.')->group(function () 
 
 // Lottory Menu Pages
 Route::middleware(['auth'])->group(function () {
+
     Route::get('/account/print', [AccountController::class, 'print'])->name('account.print');
     Route::get('/accounts',      [AccountController::class, 'accounts'])->name('account.index');
     Route::get('/transaction-details', [TransactionDetailController::class, 'index'])->name('transactions.index');
     Route::get('/cancel-bets', [TransactionDetailController::class, 'cancelPage'])->name('bets.cancel.page');
     Route::post('/bets/cancel-draw', [TransactionDetailController::class, 'cancelDraw'])->name('bets.cancel.draw');
     Route::get('/results', [ResultController::class, 'index'])->name('results.index');
-    Route::get('/reprint',       [LotteryController::class, 'reprint'])->name('lotto.reprint');
-    Route::get('/claim',         [ClaimController::class, 'claim'])->name('claim.index');
+    // Route::get('/reprint',       [LotteryController::class, 'reprint'])->name('lotto.reprint');
+
 });
 
+Route::middleware(['auth'])->prefix('reprint')->name('reprint.')->group(function () {
+
+    Route::get('/', [ReprintController::class, 'index'])->name('index');
+
+    Route::post('/search', [ReprintController::class, 'search'])->name('search');
+
+    Route::get('/{ticket}/print', [ReprintController::class, 'print'])->name('print');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Ticket Claim
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth'])->group(function () {
+
+    Route::get('/claim', [ClaimController::class, 'index'])->name('claim.index');
+    Route::post('/claim/search', [ClaimController::class, 'search'])->name('claim.search');
+    Route::post('/claim/process', [ClaimController::class, 'processClaim'])->name('claim.process');
+});
 
 
 // 🔹 Profile routes

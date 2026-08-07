@@ -7,17 +7,7 @@ use Illuminate\Http\Request;
 
 class TicketController extends Controller
 {
-    /**
-     * Print one or multiple tickets.
-     *
-     * Example:
-     *
-     * /tickets/5/print
-     *
-     * OR
-     *
-     * /tickets/print?ids=5,6,7
-     */
+   
     public function print(Request $request, BetTicket $ticket = null)
     {
         // Multiple Tickets

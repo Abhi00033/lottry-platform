@@ -143,7 +143,6 @@
             width: 8%;
             text-align: right;
             padding-right: 10px;
-            /* gap before 2nd NUM */
         }
 
         /* 2nd NUM */
@@ -159,7 +158,6 @@
             width: 8%;
             text-align: right;
             padding-right: 10px;
-            /* gap before 3rd NUM */
         }
 
         /* 3rd NUM */
@@ -175,6 +173,12 @@
             width: 8%;
             text-align: right;
         }
+
+        .barcode {
+            text-align: center;
+            margin: 3px 0;
+        }
+
 
         .footer {
 
@@ -202,6 +206,10 @@
 <body>
 
     @foreach ($tickets as $ticket)
+        @php
+            $ticketNoFormatted = str_pad($ticket->id, 6, '0', STR_PAD_LEFT);
+        @endphp
+
         <div class="ticket">
 
             <div class="title">
@@ -224,7 +232,7 @@
 
                     <td><strong>Ticket</strong></td>
 
-                    <td class="right">{{ $ticket->ticket_no }}</td>
+                    <td class="right">{{ $ticketNoFormatted }}</td>
 
                 </tr>
 
@@ -279,6 +287,7 @@
             </table>
 
             <div class="line"></div>
+
             @php
                 $chunks = $ticket->bets
                     ->sortBy('id')
@@ -378,7 +387,18 @@
 
             <div class="center">
 
-                <strong>{{ $ticket->ticket_no }}</strong>
+                <img src="data:image/png;base64,{{ DNS1D::getBarcodePNG($ticketNoFormatted, 'C128', 2, 50) }}"
+                    style="width:170px;height:45px;" alt="Barcode">
+
+                <div
+                    style="
+        margin-top:3px;
+        font-size:10px;
+        font-weight:bold;
+        letter-spacing:1px;
+    ">
+                    {{ $ticketNoFormatted }}
+                </div>
 
             </div>
 

@@ -17,13 +17,27 @@ class BetTicket extends Model
         'total_amount',
         'status',
         'printed_at',
+
+        // Claim
+        'claim_status',
+        'claim_amount',
+        'claimed_at',
+        'claimed_by',
     ];
 
     protected $casts = [
-        'draw_date' => 'date',
-        'draw_time' => 'datetime:H:i:s',
-        'printed_at' => 'datetime',
+        'draw_date'    => 'date',
+        'draw_time'    => 'datetime:H:i:s',
+        'printed_at'   => 'datetime',
+        'claimed_at'   => 'datetime',
+        'claim_amount' => 'decimal:2',
     ];
+
+    /*
+    |--------------------------------------------------------------------------
+    | Relationships
+    |--------------------------------------------------------------------------
+    */
 
     public function user()
     {
@@ -39,5 +53,13 @@ class BetTicket extends Model
     {
         return $this->hasMany(Bet::class, 'ticket_id')
             ->orderBy('id');
+    }
+
+    /**
+     * User who claimed the ticket
+     */
+    public function claimedBy()
+    {
+        return $this->belongsTo(User::class, 'claimed_by');
     }
 }

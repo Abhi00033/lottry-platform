@@ -412,7 +412,7 @@
                         </a>
 
 
-                        <a href="#" class="top-nav-btn">
+                        <a href="{{ route('reprint.index') }}" class="top-nav-btn">
                             Reprint
                         </a>
 

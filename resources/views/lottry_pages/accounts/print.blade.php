@@ -1,285 +1,219 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
 
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
 
     <title>Account Report</title>
 
     <style>
         @page {
-            size: A4 portrait;
-            margin: 12mm;
+            margin: 2mm;
+            size: auto;
         }
 
-        * {
-            box-sizing: border-box;
-        }
-
+        html,
         body {
             margin: 0;
             padding: 0;
-            font-family: Arial, Helvetica, sans-serif;
-            font-size: 13px;
-            color: #000;
+            font-family: "Courier New", monospace;
+            font-size: 10px;
             background: #fff;
-            line-height: 1.3;
+            color: #000;
         }
 
-        .container {
-            width: 640px;
-            max-width: 100%;
-            margin: 0 auto;
-        }
-
-        h1 {
+        .report {
+            width: 58mm;
             margin: 0;
-            text-align: center;
-            font-size: 24px;
-            font-weight: bold;
+            padding: 2mm;
+            box-sizing: border-box;
         }
 
-        h2 {
-            margin: 8px 0 18px;
+        .title {
             text-align: center;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: bold;
+            letter-spacing: 1px;
         }
 
-        h3 {
-            margin: 18px 0 8px;
+        .subtitle {
             text-align: center;
-            font-size: 18px;
+            font-size: 10px;
             font-weight: bold;
-            page-break-after: avoid;
+            margin-bottom: 2px;
         }
 
-        .info {
-            margin-bottom: 18px;
-            line-height: 22px;
-            font-size: 13px;
+        .section-title {
+            text-align: center;
+            font-size: 11px;
+            font-weight: bold;
+            margin: 4px 0 2px;
+        }
+
+        .line {
+            border-top: 1px dashed #000;
+            margin: 3px 0;
         }
 
         table {
-            width: 98%;
-            margin: 0 auto 18px;
+            width: 100%;
             border-collapse: collapse;
-            page-break-inside: avoid;
-        }
-
-        th {
-            background: #333;
-            color: #fff;
-            border: 1px solid #000;
-            padding: 8px;
-            font-size: 13px;
-            text-align: center;
         }
 
         td {
-            border: 1px solid #000;
-            padding: 8px;
-            font-size: 13px;
-            text-align: center;
+            padding: 1px 0;
+            vertical-align: top;
+            font-size: 10px;
         }
 
-        .amount {
-            width: 170px;
+        .left {
+            text-align: left;
+        }
+
+        .right {
             text-align: right;
-            padding-right: 10px;
+        }
+
+        .center {
+            text-align: center;
         }
 
         .footer {
-            margin-top: 25px;
             text-align: center;
-            font-size: 13px;
-            font-weight: bold;
-        }
-
-        @media screen {
-
-            body {
-                background: #f3f3f3;
-            }
-
-            .container {
-                background: #fff;
-                padding: 25px;
-                margin: 30px auto;
-                box-shadow: 0 0 8px rgba(0, 0, 0, .15);
-            }
-
+            margin-top: 5px;
+            font-size: 10px;
         }
 
         @media print {
-
-            body {
-                background: #fff;
+            .report {
+                width: 58mm;
             }
-
-            .container {
-                width: 100%;
-                max-width: 100%;
-                margin: 0;
-                padding: 0;
-                box-shadow: none;
-            }
-
-            button {
-                display: none;
-            }
-
         }
     </style>
+
 </head>
 
 <body>
 
-    <div class="container">
+    <div class="report">
 
-        <h1>RWINLOT</h1>
+        <div class="title">RWINLOT</div>
 
-        <h2>ACCOUNT SUMMARY REPORT</h2>
+        <div class="subtitle">ACCOUNT SUMMARY REPORT</div>
 
-        <div class="info">
-
-            <strong>Retailer :</strong>
-            {{ strtoupper($auth->username) }}
-
-            <br>
-
-            <strong>From :</strong>
-            {{ \Carbon\Carbon::parse($dateFrom)->format('d-m-Y') }}
-
-            <br>
-
-            <strong>To :</strong>
-            {{ \Carbon\Carbon::parse($dateTo)->format('d-m-Y') }}
-
-            <br>
-
-            <strong>Printed :</strong>
-
-            {{ now()->format('d-m-Y h:i A') }}
-
-        </div>
-
-        <h3>REPORT - 1</h3>
+        <div class="line"></div>
 
         <table>
 
             <tr>
-
-                <th>Description</th>
-
-                <th>Amount</th>
-
+                <td><strong>Retailer</strong></td>
+                <td class="right">{{ strtoupper($auth->username) }}</td>
             </tr>
 
             <tr>
+                <td>From</td>
+                <td class="right">{{ \Carbon\Carbon::parse($dateFrom)->format('d-m-Y') }}</td>
+            </tr>
 
+            <tr>
+                <td>To</td>
+                <td class="right">{{ \Carbon\Carbon::parse($dateTo)->format('d-m-Y') }}</td>
+            </tr>
+
+            <tr>
+                <td>Printed</td>
+                <td class="right">{{ now()->format('d-m-Y h:i A') }}</td>
+            </tr>
+
+        </table>
+
+        <div class="line"></div>
+
+        <div class="section-title">REPORT - 1</div>
+
+        <table>
+
+            <tr style="font-weight: bold;">
+                <td class="left">Description</td>
+                <td class="right">Amount</td>
+            </tr>
+
+            <tr>
+                <td colspan="2">
+                    <div class="line"></div>
+                </td>
+            </tr>
+
+            <tr>
                 <td>Play Point</td>
-
-                <td class="amount">{{ number_format($report1['play_point'], 2) }}</td>
-
+                <td class="right">{{ number_format($report1['play_point'], 2) }}</td>
             </tr>
 
             <tr>
-
                 <td>Commission</td>
-
-                <td class="amount">{{ number_format($report1['commission'], 2) }}</td>
-
+                <td class="right">{{ number_format($report1['commission'], 2) }}</td>
             </tr>
 
             <tr>
-
                 <td>Win Point</td>
-
-                <td class="amount">{{ number_format($report1['win_point'], 2) }}</td>
-
+                <td class="right">{{ number_format($report1['win_point'], 2) }}</td>
             </tr>
 
-            <tr>
-
-                <td><strong>Net</strong></td>
-
-                <td class="amount">
-
-                    <strong>
-
-                        {{ $report1['net'] < 0 ? '-' : '' }}
-
-                        {{ number_format(abs($report1['net']), 2) }}
-
-                    </strong>
-
+            <tr style="font-weight: bold;">
+                <td>Net</td>
+                <td class="right">
+                    {{ $report1['net'] < 0 ? '-' : '' }}{{ number_format(abs($report1['net']), 2) }}
                 </td>
-
             </tr>
 
         </table>
 
-        <h3>REPORT - 2</h3>
+        <div class="line"></div>
+
+        <div class="section-title">REPORT - 2</div>
 
         <table>
 
-            <tr>
-
-                <th>Description</th>
-
-                <th>Amount</th>
-
+            <tr style="font-weight: bold;">
+                <td class="left">Description</td>
+                <td class="right">Amount</td>
             </tr>
 
             <tr>
+                <td colspan="2">
+                    <div class="line"></div>
+                </td>
+            </tr>
 
+            <tr>
                 <td>Play Amount</td>
-
-                <td class="amount">
-
-                    {{ number_format($report2['play_point'], 2) }}
-
-                </td>
-
+                <td class="right">{{ number_format($report2['play_point'], 2) }}</td>
             </tr>
 
             <tr>
-
                 <td>Win Amount</td>
-
-                <td class="amount">
-
-                    {{ number_format($report2['win_point'], 2) }}
-
-                </td>
-
+                <td class="right">{{ number_format($report2['win_point'], 2) }}</td>
             </tr>
 
-            <tr>
-
-                <td><strong>Net</strong></td>
-
-                <td class="amount">
-
-                    <strong>
-
-                        {{ $report2['net'] < 0 ? '-' : '' }}
-
-                        {{ number_format(abs($report2['net']), 2) }}
-
-                    </strong>
-
+            <tr style="font-weight: bold;">
+                <td>Net</td>
+                <td class="right">
+                    {{ $report2['net'] < 0 ? '-' : '' }}{{ number_format(abs($report2['net']), 2) }}
                 </td>
-
             </tr>
 
         </table>
+
+        <div class="line"></div>
 
         <div class="footer">
 
-            <strong>Generated By RWINLOT</strong>
+            <strong>THANK YOU</strong>
+
+            <br>
+
+            Generated By RWINLOT
 
         </div>
 
@@ -287,9 +221,7 @@
 
     <script>
         window.onload = function() {
-
             window.print();
-
         };
     </script>
 
