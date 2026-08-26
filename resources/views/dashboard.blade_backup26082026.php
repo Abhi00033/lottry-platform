@@ -393,16 +393,6 @@
             background: #fff;
         }
 
-        /* Active Input / Cursor Highlight */
-        .input-bet-field:focus,
-        .master-input-field:focus {
-            background-color: #ffe082 !important;
-            /* Soft yellow highlight */
-            border: 2px solid #000 !important;
-            outline: none !important;
-            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5) !important;
-        }
-
         /* Stats Area */
         .stats-sidebar {
             width: 250px;
@@ -1003,15 +993,17 @@
         // main grid script code and logic
         document.addEventListener('DOMContentLoaded', function() {
 
-            // 1. Numeric sanitize and stats recalculation
             document.querySelectorAll('.input-bet-field, .master-input-field').forEach(input => {
                 input.addEventListener('input', function() {
+                    // 1. Remove non-numeric characters immediately
                     this.value = this.value.replace(/[^0-9]/g, '');
 
+                    // 2. Prevent leading zeros (e.g., "05" becomes "5")
                     if (this.value.length > 1 && this.value.startsWith('0')) {
                         this.value = this.value.replace(/^0+/, '');
                     }
 
+                    // 3. Force re-calculation of total points
                     if (typeof updateAllStats === "function") {
                         updateAllStats();
                     }
@@ -1021,15 +1013,33 @@
             /* =====================================================
                STATE
             ===================================================== */
-            let activeSeriesRow = 0;
+            let activeSeriesRow = null;
             let currentMode = 'low';
             let currentBaseSeries = null;
             let masterGridData = {};
             let pageOverrides = {};
-            let pageOverrideMode = true;
+            let pageOverrideMode = false;
 
             function getCellKey(row, col) {
                 return `${row}_${col}`;
+            }
+
+            function getPageData(pageIndex) {
+                const pageData = {};
+                const keys = new Set([
+                    ...Object.keys(masterGridData || {}),
+                    ...Object.keys(pageOverrides[pageIndex] || {})
+                ]);
+
+                keys.forEach(key => {
+                    if (pageOverrides[pageIndex] && pageOverrides[pageIndex].hasOwnProperty(key)) {
+                        pageData[key] = pageOverrides[pageIndex][key];
+                    } else {
+                        pageData[key] = masterGridData[key];
+                    }
+                });
+
+                return pageData;
             }
 
             function getCellValue(page, row, col) {
@@ -1039,6 +1049,7 @@
                     return pageOverrides[page][key];
                 }
 
+                // Inherit when ALL is selected or when it is the global fallback
                 if (document.getElementById('checkSelectAllRows').checked || !pageOverrideMode) {
                     return masterGridData[key] || '';
                 }
@@ -1058,7 +1069,7 @@
                     }
                 });
 
-                // Context fallback: if no checkbox is explicitly checked, apply to the active page
+                // Context fallback: if no checkbox is explicitly checked, include the active page viewing row
                 if (pages.length === 0 && activeSeriesRow !== null) {
                     pages.push(activeSeriesRow);
                 }
@@ -1077,69 +1088,14 @@
                 document.querySelectorAll('.input-bet-field').forEach(input => {
                     const key = getCellKey(input.dataset.row, input.dataset.col);
                     const currentValue = input.value || '';
+                    const masterValue = masterGridData[key] || '';
 
-                    if (currentValue !== '') {
+                    if (currentValue !== masterValue) {
                         pageOverrides[page][key] = currentValue;
                     } else {
                         delete pageOverrides[page][key];
                     }
                 });
-            }
-
-            /* =====================================================
-               CLEAR MASTER ROW/COL INPUTS ON RANGE SWITCH
-            ===================================================== */
-            function clearMasterInputs() {
-                document.querySelectorAll('.master-row, .master-col').forEach(inp => {
-                    inp.value = '';
-                });
-            }
-
-            /* =====================================================
-               ISOLATE & UNCHECK CHECKBOXES ON RANGE CLICK (FIXED)
-            ===================================================== */
-            function handleRangeSwitch(newPageIndex) {
-                // 1. Save whatever is currently typed in the active viewport
-                saveCurrentPageData();
-
-                // 2. If "ALL" was active, bake masterGridData into all 10 pages permanently
-                if (allRowsCB.checked) {
-                    for (let i = 0; i < 10; i++) {
-                        if (!pageOverrides[i]) pageOverrides[i] = {};
-                        Object.keys(masterGridData).forEach(k => {
-                            if (!pageOverrides[i].hasOwnProperty(k) || pageOverrides[i][k] === '') {
-                                pageOverrides[i][k] = masterGridData[k];
-                            }
-                        });
-                    }
-                    masterGridData = {};
-                } else {
-                    // If specific manual checkboxes were checked, replicate current view into them before clearing
-                    const checkedBoxes = document.querySelectorAll('.row-selector:checked');
-                    if (checkedBoxes.length > 0 && activeSeriesRow !== null) {
-                        const sourceData = pageOverrides[activeSeriesRow] || {};
-                        checkedBoxes.forEach(cb => {
-                            const pageIdx = parseInt(cb.closest('.series-row-compact').dataset.page, 10);
-                            if (!pageOverrides[pageIdx]) pageOverrides[pageIdx] = {};
-                            Object.assign(pageOverrides[pageIdx], sourceData);
-                        });
-                    }
-                }
-
-                // 3. Uncheck ALL and individual checkboxes
-                allRowsCB.checked = false;
-                document.querySelectorAll('.row-selector').forEach(cb => cb.checked = false);
-
-                // 4. Clear top and sidebar master input fields
-                clearMasterInputs();
-
-                // 5. Switch to target page
-                activeSeriesRow = newPageIndex;
-                pageOverrideMode = true;
-
-                updateView();
-                if (typeof updateTopResults === "function") updateTopResults(currentBaseSeries);
-                updateAllStats();
             }
 
             /* =====================================================
@@ -1164,6 +1120,7 @@
             const filterRadios = document.querySelectorAll('.filter-radio');
             const seriesCheckboxes = document.querySelectorAll('.series-select');
 
+            // set default base series
             const firstCheckedSeries = document.querySelector('.series-select:checked');
             if (firstCheckedSeries) {
                 currentBaseSeries = parseInt(firstCheckedSeries.value, 10);
@@ -1172,6 +1129,7 @@
             activeSeriesRow = 0;
             pageOverrideMode = true;
 
+            // Do NOT check any row by default
             document.querySelectorAll('.row-selector').forEach(cb => {
                 cb.checked = false;
             });
@@ -1216,12 +1174,12 @@
                     pageOverrideMode = true;
 
                     updateView();
-                    if (typeof updateTopResults === "function") updateTopResults(currentBaseSeries);
+                    updateTopResults(currentBaseSeries);
                     updateAllStats();
                 });
             });
 
-            const lastDrawResults = @json($lastResults ?? []);
+            const lastDrawResults = @json($lastResults);
 
             function updateView() {
                 const baseSeries = currentBaseSeries ?? 1000;
@@ -1298,25 +1256,43 @@
             }
 
             /* =====================================================
-               PAGE NAVIGATION & CLICK HANDLERS
+               PAGE NAVIGATION
             ===================================================== */
             document.getElementById('btnPageDown').onclick = () => {
-                let next = activeSeriesRow === null ? 0 : activeSeriesRow;
-                if (next < 9) next++;
-                handleRangeSwitch(next);
+                saveCurrentPageData();
+                if (activeSeriesRow === null) {
+                    activeSeriesRow = 0;
+                } else if (activeSeriesRow < 9) {
+                    activeSeriesRow++;
+                }
+                pageOverrideMode = true;
+                updateView();
+                updateTopResults(currentBaseSeries);
+                updateAllStats();
             };
 
             document.getElementById('btnPageUp').onclick = () => {
-                let prev = activeSeriesRow === null ? 0 : activeSeriesRow;
-                if (prev > 0) prev--;
-                handleRangeSwitch(prev);
+                saveCurrentPageData();
+                if (activeSeriesRow === null) {
+                    activeSeriesRow = 0;
+                } else if (activeSeriesRow > 0) {
+                    activeSeriesRow--;
+                }
+                pageOverrideMode = true;
+                updateView();
+                updateTopResults(currentBaseSeries);
+                updateAllStats();
             };
 
             document.querySelectorAll('.series-row-compact').forEach(row => {
                 row.addEventListener('click', function(e) {
                     if (e.target.classList.contains('row-selector')) return;
-                    const targetPage = parseInt(this.dataset.page, 10);
-                    handleRangeSwitch(targetPage);
+                    saveCurrentPageData();
+                    activeSeriesRow = parseInt(this.dataset.page);
+                    pageOverrideMode = true;
+                    updateView();
+                    updateTopResults(currentBaseSeries);
+                    updateAllStats();
                 });
             });
 
@@ -1325,12 +1301,12 @@
             ===================================================== */
             allRowsCB.onchange = function() {
                 if (this.checked) {
-                    activeSeriesRow = 0;
+                    activeSeriesRow = 0; // Default view to first range page if select all
                     pageOverrideMode = false;
                 }
                 document.querySelectorAll('.row-selector').forEach(cb => cb.checked = this.checked);
                 updateView();
-                if (typeof updateTopResults === "function") updateTopResults(currentBaseSeries);
+                updateTopResults(currentBaseSeries);
                 updateAllStats();
             };
 
@@ -1341,11 +1317,15 @@
                         if (box.checked) selectedPages.push(idx);
                     });
 
-                    activeSeriesRow = index;
-                    pageOverrideMode = true;
+                    if (selectedPages.length === 0) {
+                        activeSeriesRow = index;
+                        pageOverrideMode = true;
+                    } else {
+                        activeSeriesRow = index;
+                        pageOverrideMode = true;
+                    }
 
-                    document.getElementById('checkSelectAllRows').checked = (selectedPages.length ===
-                        10);
+                    document.getElementById('checkSelectAllRows').checked = selectedPages.length === 10;
                     updateView();
                     updateAllStats();
                 };
@@ -1357,13 +1337,13 @@
             document.querySelectorAll('input[name="main_amt"]').forEach(rad => {
                 rad.onchange = function() {
                     updateView();
-                    if (typeof updateTopResults === "function") updateTopResults(currentBaseSeries);
+                    updateTopResults(currentBaseSeries);
                     updateAllStats();
                 };
             });
 
             /* =====================================================
-               MASTER INPUTS (VERTICAL & HORIZONTAL ALL/EVEN/ODD)
+               MASTER INPUTS
             ===================================================== */
             function handleMasterInput(isRow, index, value) {
                 const filterMode = document.querySelector('input[name="grid_filter"]:checked')?.value || 'all';
@@ -1384,18 +1364,10 @@
                         input.value = value;
                         const key = getCellKey(r, c);
 
-                        if (allRowsCB.checked) {
-                            masterGridData[key] = value;
-                        }
-
                         const selectedPages = getSelectedPages();
                         selectedPages.forEach(page => {
                             if (!pageOverrides[page]) pageOverrides[page] = {};
-                            if (value === '') {
-                                delete pageOverrides[page][key];
-                            } else {
-                                pageOverrides[page][key] = value;
-                            }
+                            pageOverrides[page][key] = value;
                         });
                     }
                 });
@@ -1418,9 +1390,8 @@
                 masterGridData = {};
                 pageOverrides = {};
                 document.querySelectorAll('.input-bet-field').forEach(input => input.value = '');
-                clearMasterInputs();
+                document.querySelectorAll('.master-row, .master-col').forEach(input => input.value = '');
                 document.querySelectorAll('.row-selector').forEach(cb => cb.checked = false);
-                allRowsCB.checked = false;
                 for (let i = 0; i < 10; i++) {
                     document.getElementById(`qty-row-${i}`).innerText = 0;
                     document.getElementById(`points-row-${i}`).innerText = 0;
@@ -1473,7 +1444,7 @@
                 if (this.value.length > 1 && this.value.startsWith('0')) {
                     this.value = this.value.replace(/^0+/, '');
                 }
-                let value = parseInt(this.value, 10);
+                let value = parseInt(this.value);
                 if (value > 99) this.value = 99;
                 else if (value < 1 && this.value !== "") this.value = 1;
             });
@@ -1491,7 +1462,7 @@
             }
 
             btnLP.addEventListener('click', function() {
-                let count = parseInt(lpInput.value, 10);
+                let count = parseInt(lpInput.value);
                 if (isNaN(count) || count <= 0) return;
                 if (count > 100) count = 100;
 
@@ -1537,7 +1508,7 @@
             function clearFPHighlights() {
                 document.querySelectorAll('.input-bet-field').forEach(el => {
                     if (el.style.backgroundColor === 'rgb(255, 245, 157)') el.style.backgroundColor =
-                    '#fff';
+                        '#fff';
                 });
             }
 
@@ -1546,40 +1517,36 @@
                     if (!fpCheckbox.checked) return;
                     clearFPHighlights();
 
-                    let r = parseInt(this.dataset.row, 10);
-                    let c = parseInt(this.dataset.col, 10);
+                    let r = parseInt(this.dataset.row);
+                    let c = parseInt(this.dataset.col);
                     let r2 = (r + 5) % 10;
                     let c2 = (c + 5) % 10;
 
                     const targets = [{
                             row: r,
                             col: c
-                        },
-                        {
+                        }, {
                             row: r,
                             col: c2
                         },
                         {
                             row: r2,
                             col: c
-                        },
-                        {
+                        }, {
                             row: r2,
                             col: c2
                         },
                         {
                             row: c,
                             col: r
-                        },
-                        {
+                        }, {
                             row: c,
                             col: r2
                         },
                         {
                             row: c2,
                             col: r
-                        },
-                        {
+                        }, {
                             row: c2,
                             col: r2
                         }
@@ -1643,9 +1610,7 @@
                 }
             });
 
-            /* =====================================================
-               SHOW/HIDE RESULTS TOGGLE
-            ===================================================== */
+            // SHOW/HIDE RESULTS TOGGLE
             const btnShowResults = document.getElementById('btnShowResults');
             const headerQtyPts = document.getElementById('header-qty-pts');
             const headerResult = document.getElementById('header-result');
@@ -1680,22 +1645,25 @@
                         normalStats.forEach(el => el.style.setProperty('display', 'block',
                             'important'));
                         if (resultStat) resultStat.style.setProperty('display', 'none',
-                        'important');
+                            'important');
                     }
                 });
             });
 
             /* =====================================================
-               TOTALS AND QUANTITY RE-CALCULATION
+               TOTALS AND QUANTITY RE-CALCULATION LOGIC (FIXED)
             ===================================================== */
             function getGridQtyForPage(pageIndex) {
                 let qty = 0;
+                // Accumulate values exclusively saved or overwritten inside this unique page array index
                 const pageData = pageOverrides[pageIndex] || {};
 
+                // If "Select All" option isn't chosen, check if this page contains input values
                 Object.values(pageData).forEach(val => {
                     qty += parseInt(val || 0, 10);
                 });
 
+                // When global select all is active, master grid data holds the base values
                 if (document.getElementById('checkSelectAllRows').checked && qty === 0) {
                     Object.values(masterGridData).forEach(val => {
                         qty += parseInt(val || 0, 10);
@@ -1717,6 +1685,7 @@
             }
 
             function updateAllStats() {
+                // Save live viewport field items before computing total parameters
                 if (activeSeriesRow !== null) {
                     const page = activeSeriesRow;
                     if (!pageOverrides[page]) pageOverrides[page] = {};
@@ -1733,13 +1702,16 @@
                 let totalQty = 0;
                 let totalPoints = 0;
 
+                // Active Series Multiplier calculation
                 const checkedSeriesCount = document.querySelectorAll('.series-select:checked').length;
                 const seriesMultiplier = checkedSeriesCount > 0 ? checkedSeriesCount : 1;
 
+                // Scan through all 10 visual row elements
                 for (let i = 0; i < 10; i++) {
                     const gridQty = getGridQtyForPage(i);
                     const rate = getRowRate(i);
 
+                    // Update UI components dynamically based on layout variables
                     const rowQty = gridQty * seriesMultiplier;
                     const rowPoints = gridQty * rate * seriesMultiplier;
 
@@ -1750,11 +1722,13 @@
                     totalPoints += rowPoints;
                 }
 
+                // Advance Draw Multiplier parsing logic
                 const drawMultiplier = Math.max(
                     document.querySelectorAll('.advance-draw-cb:checked').length,
                     1
                 );
 
+                // Update standard values back onto bottom dashboard bar inputs
                 document.getElementById('totalQty').value = totalQty * drawMultiplier;
                 document.getElementById('totalPoints').value = totalPoints * drawMultiplier;
             }
@@ -1772,8 +1746,8 @@
 
             document.querySelectorAll('.input-bet-field').forEach(input => {
                 input.addEventListener('keydown', function(e) {
-                    let row = parseInt(this.dataset.row, 10);
-                    let col = parseInt(this.dataset.col, 10);
+                    let row = parseInt(this.dataset.row);
+                    let col = parseInt(this.dataset.col);
 
                     if (e.key === 'ArrowLeft') {
                         e.preventDefault();
@@ -1805,7 +1779,7 @@
 
             document.querySelectorAll('.master-col').forEach(input => {
                 input.addEventListener('keydown', function(e) {
-                    let col = parseInt(this.dataset.col, 10);
+                    let col = parseInt(this.dataset.col);
                     if (e.key === 'ArrowLeft') {
                         e.preventDefault();
                         col = (col - 1 + 10) % 10;
@@ -1823,7 +1797,7 @@
 
             document.querySelectorAll('.master-row').forEach(input => {
                 input.addEventListener('keydown', function(e) {
-                    let row = parseInt(this.dataset.row, 10);
+                    let row = parseInt(this.dataset.row);
                     if (e.key === 'ArrowUp') {
                         e.preventDefault();
                         row = (row - 1 + 10) % 10;
@@ -1841,11 +1815,17 @@
 
             document.querySelectorAll('.input-bet-field').forEach(input => {
                 input.addEventListener('input', function() {
+
                     const key = getCellKey(this.dataset.row, this.dataset.col);
                     const value = this.value;
+
+                    // Apply to all selected pages.
+                    // If nothing is selected, getSelectedPages() automatically
+                    // returns the current active page.
                     const selectedPages = getSelectedPages();
 
                     selectedPages.forEach(page => {
+
                         if (!pageOverrides[page]) {
                             pageOverrides[page] = {};
                         }
@@ -1855,12 +1835,8 @@
                         } else {
                             pageOverrides[page][key] = value;
                         }
-                    });
 
-                    if (allRowsCB.checked) {
-                        if (value === '') delete masterGridData[key];
-                        else masterGridData[key] = value;
-                    }
+                    });
 
                     updateAllStats();
                 });
@@ -1870,9 +1846,9 @@
                 updateAllStats();
             });
 
-            // RUNTIME INITIALIZATION
+            // RUNTIME INSTANTIATION INITIALIZATION
             updateView();
-            if (typeof updateTopResults === "function") updateTopResults(currentBaseSeries);
+            updateTopResults(currentBaseSeries);
             updateAllStats();
 
             /* =====================================================
@@ -1919,6 +1895,7 @@
                 });
 
                 const grandTotalPoints = parseFloat(document.getElementById('totalPoints').value || 0);
+
                 const selectedRadio = document.querySelector('input[name="main_amt"]:checked');
 
                 if (!selectedRadio) {
@@ -1931,6 +1908,7 @@
                 }
 
                 const ticketPrice = parseFloat(selectedRadio.value);
+
                 let multiplier = advanceDrawTimes.length > 0 ? advanceDrawTimes.length : 1;
 
                 const btn = document.getElementById('btnPlaceBet');
@@ -1938,31 +1916,49 @@
                 btn.innerHTML = 'Processing...';
 
                 const bets = [];
+
+
                 const checkedSeriesTabs = document.querySelectorAll('.series-select:checked');
 
                 checkedSeriesTabs.forEach(seriesCheckbox => {
                     const baseSeries = parseInt(seriesCheckbox.value, 10);
 
                     document.querySelectorAll('.series-row-compact').forEach((rowEl, index) => {
+
+                        // Only place bets for checked ranges
+                        const rowCheckbox = rowEl.querySelector('.row-selector');
+
+                        if (!rowCheckbox || !rowCheckbox.checked) {
+                            return;
+                        }
+
                         const seriesStart = baseSeries + (index * 100);
                         const pageData = pageOverrides[index] || {};
                         const seriesNumbers = {};
 
                         Object.entries(pageData).forEach(([key, qty]) => {
+
                             qty = parseInt(qty || 0, 10);
-                            if (qty <= 0) return;
+
+                            // Ignore empty/invalid quantities
+                            if (qty <= 0) {
+                                return;
+                            }
 
                             const [r, c] = key.split('_').map(Number);
                             const actualNumber = seriesStart + (r * 10) + c;
+
                             seriesNumbers[actualNumber] = qty;
                         });
 
+                        // Skip completely empty checked rows
                         if (Object.keys(seriesNumbers).length === 0) {
                             return;
                         }
 
                         const displayAmt = rowEl.querySelector('.display-amt')?.innerText || String(
                             ticketPrice);
+
                         let unitPoints = ticketPrice;
 
                         if (displayAmt.includes('*')) {
@@ -1976,10 +1972,13 @@
                             unit_points: unitPoints,
                             numbers: seriesNumbers
                         });
+
                     });
                 });
 
-                if (grandTotalPoints <= 0 || bets.length === 0) {
+                // Nothing entered anywhere
+                if (grandTotalPoints <= 0) {
+
                     btn.disabled = false;
                     btn.innerHTML = 'Print';
 
@@ -1988,6 +1987,22 @@
                         title: 'No Bets Entered',
                         text: 'Please enter at least one quantity before printing.'
                     });
+
+                    return;
+                }
+
+                // Qty entered but no range selected
+                if (bets.length === 0) {
+
+                    btn.disabled = false;
+                    btn.innerHTML = 'Print';
+
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'No Range Selected',
+                        text: 'Please select at least one betting range before printing.'
+                    });
+
                     return;
                 }
 
@@ -2008,6 +2023,7 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.status === 'success') {
+                            // 1. Silent iframe print without tab redirect
                             let printFrame = document.getElementById('silentPrintIframe');
                             if (!printFrame) {
                                 printFrame = document.createElement('iframe');
@@ -2017,6 +2033,7 @@
                             }
 
                             printFrame.src = data.print_url;
+
                             printFrame.onload = function() {
                                 try {
                                     printFrame.contentWindow.focus();
@@ -2026,8 +2043,10 @@
                                 }
                             };
 
+                            // 2. Clear input grid immediately
                             document.getElementById('btnClear').click();
 
+                            // 3. Show success confirmation and refresh wallet/dashboard
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Bet Placed Successfully',
@@ -2037,6 +2056,7 @@
                             }).then(() => {
                                 location.reload();
                             });
+
                         } else {
                             Swal.fire({
                                 icon: 'error',
@@ -2046,12 +2066,15 @@
                         }
                     })
                     .catch(error => {
+
                         console.error(error);
+
                         Swal.fire({
                             icon: 'error',
                             title: 'Unable to Place Bet',
                             text: 'Something went wrong while placing the bet. Please try again.'
                         });
+
                     })
                     .finally(() => {
                         btn.disabled = false;

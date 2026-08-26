@@ -15,6 +15,9 @@ class ClaimController extends Controller
     {
         $selectedDate = request('date', now()->toDateString());
         $ticketNo     = strtoupper(trim(request('ticket_no', '')));
+        $shouldOpen   = request('open', 0); // Check if redirect asked to open modal
+
+        $user = auth()->user();
 
         $query = BetTicket::with([
             'user',
@@ -23,8 +26,27 @@ class ClaimController extends Controller
             'claimedBy'
         ]);
 
+        // Role-Based Filtering
+        if ($user->role_id == 2) {
+            // Agent: Can see their own tickets + tickets of users they created (retailers)
+            $query->where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)
+                    ->orWhereIn('user_id', function ($sub) use ($user) {
+                        $sub->select('id')->from('users')->where('parent_id', $user->id);
+                    });
+            });
+        } elseif ($user->role_id == 3) {
+            // Retailer: Can see only their own tickets
+            $query->where('user_id', $user->id);
+        }
+        // Admin (role_id == 1) has no restriction and sees everything
+
         if (!empty($ticketNo)) {
-            $query->where('ticket_no', $ticketNo);
+            $cleanedTicketNo = ltrim($ticketNo, '0');
+            $query->where(function ($q) use ($ticketNo, $cleanedTicketNo) {
+                $q->where('ticket_no', $ticketNo)
+                    ->orWhere('id', $cleanedTicketNo);
+            });
         } else {
             $query->whereDate('draw_date', $selectedDate)
                 ->latest('draw_time')
@@ -57,7 +79,10 @@ class ClaimController extends Controller
 
         $searchedTicket = $tickets->first();
 
-        return view('lottry_pages.claim.index', compact('tickets', 'searchedTicket'));
+        // Pass auto-open flag and target ticket number to the view
+        $autoOpenTicketNo = ($shouldOpen && $searchedTicket) ? $searchedTicket->ticket_no : null;
+
+        return view('lottry_pages.claim.index', compact('tickets', 'searchedTicket', 'autoOpenTicketNo'));
     }
 
     public function search(Request $request)
@@ -66,13 +91,33 @@ class ClaimController extends Controller
             'ticket_no' => 'required|string'
         ]);
 
-        $ticket = BetTicket::with([
+        $ticketNo = strtoupper(trim($request->ticket_no));
+        $cleanedTicketNo = ltrim($ticketNo, '0');
+        $user = auth()->user();
+
+        $query = BetTicket::with([
             'user',
             'bets',
             'transaction',
             'claimedBy'
-        ])
-            ->where('ticket_no', strtoupper(trim($request->ticket_no)))
+        ]);
+
+        // Role-Based Filtering for Search
+        if ($user->role_id == 2) {
+            $query->where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)
+                    ->orWhereIn('user_id', function ($sub) use ($user) {
+                        $sub->select('id')->from('users')->where('parent_id', $user->id);
+                    });
+            });
+        } elseif ($user->role_id == 3) {
+            $query->where('user_id', $user->id);
+        }
+
+        $ticket = $query->where(function ($q) use ($ticketNo, $cleanedTicketNo) {
+            $q->where('ticket_no', $ticketNo)
+                ->orWhere('id', $cleanedTicketNo);
+        })
             ->first();
 
         if (!$ticket) {
@@ -148,13 +193,26 @@ class ClaimController extends Controller
         DB::beginTransaction();
 
         try {
-            $ticket = BetTicket::with([
+            $user = auth()->user();
+            $query = BetTicket::with([
                 'user',
                 'bets',
                 'claimedBy'
-            ])
-                ->lockForUpdate()
-                ->findOrFail($request->ticket_id);
+            ])->lockForUpdate();
+
+            // Enforce role constraints on claim execution as well
+            if ($user->role_id == 2) {
+                $query->where(function ($q) use ($user) {
+                    $q->where('user_id', $user->id)
+                        ->orWhereIn('user_id', function ($sub) use ($user) {
+                            $sub->select('id')->from('users')->where('parent_id', $user->id);
+                        });
+                });
+            } elseif ($user->role_id == 3) {
+                $query->where('user_id', $user->id);
+            }
+
+            $ticket = $query->findOrFail($request->ticket_id);
 
             // 1. Draw completed check
             $drawCompleted = now()->greaterThanOrEqualTo(
@@ -205,23 +263,23 @@ class ClaimController extends Controller
             }
 
             // 4. AUTOMATIC FIRST TIME CLAIM — Credit Balance
-            $user = $ticket->user;
-            $user->increment('balance', $ticket->claim_amount);
-            $user = $user->fresh();
+            $ticketUser = $ticket->user;
+            $ticketUser->increment('balance', $ticket->claim_amount);
+            $ticketUser = $ticketUser->fresh();
 
             // Record transaction audit
             UserBalanceTransaction::create([
-                'user_id'       => $user->id,
+                'user_id'       => $ticketUser->id,
                 'type'          => 'credit',
                 'amount'        => $ticket->claim_amount,
-                'balance_after' => $user->balance,
+                'balance_after' => $ticketUser->balance,
                 'remarks'       => 'Auto-claimed Prize for Ticket #' . $ticket->ticket_no,
             ]);
 
             // Update ticket claim status
             $ticket->claim_status = 'claimed';
             $ticket->claimed_at   = now();
-            $ticket->claimed_by   = auth()->id();
+            $ticket->claimed_by   = $user->id;
             $ticket->save();
 
             // Update winning bets status
@@ -236,7 +294,7 @@ class ClaimController extends Controller
                 'is_first_win' => true,
                 'win_amount'   => number_format($ticket->claim_amount, 2),
                 'message'      => 'YOU WIN ₹' . number_format($ticket->claim_amount, 2),
-                'new_balance'  => number_format($user->balance, 2),
+                'new_balance'  => number_format($ticketUser->balance, 2),
                 'claimed_at'   => $ticket->claimed_at->format('d M Y, h:i A'),
             ]);
         } catch (\Throwable $e) {

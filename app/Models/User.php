@@ -35,7 +35,7 @@ class User extends Authenticatable
 
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'password'          => 'hashed',
+        // 'password'          => 'hashed',
         'balance'           => 'decimal:2',
         'commision'         => 'decimal:2',  // ← cast so it's always a float, never a string
     ];

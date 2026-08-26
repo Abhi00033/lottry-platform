@@ -292,6 +292,25 @@
                 });
             }
 
+            document.addEventListener("DOMContentLoaded", function() {
+                @if (isset($autoOpenTicketNo) && !empty($autoOpenTicketNo))
+                    // 1. Clean the URL immediately so refreshing won't re-trigger the modal loop
+                    if (window.history.replaceState) {
+                        const cleanUrl = window.location.protocol + "//" + window.location.host + window.location
+                            .pathname;
+                        window.history.replaceState({
+                            path: cleanUrl
+                        }, '', cleanUrl);
+                    }
+
+                    // 2. Automatically trigger your modal popup and claim process
+                    let scannedTicketNo = "{{ $autoOpenTicketNo }}";
+                    if (typeof openAndAutoClaimTicket === 'function') {
+                        openAndAutoClaimTicket(scannedTicketNo);
+                    }
+                @endif
+            });
+
             // Click row or Ticket number to open modal
             $(document).on('click', '.ticket-row', function() {
                 let ticketNo = $(this).data('ticket-no');

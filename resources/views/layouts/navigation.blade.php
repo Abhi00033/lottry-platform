@@ -493,21 +493,33 @@
                 @csrf
                 @method('PUT')
                 <div class="modal-body">
+
+                    <!-- Display general validation error if any -->
+                    @if ($errors->any())
+                        <div class="alert alert-danger py-2 mb-3 text-xs" style="font-size: 0.85rem;">
+                            <ul class="mb-0 ps-3">
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
+
                     <div class="mb-3 position-relative">
                         <label class="fw-bold text-warning">Old Password</label>
-                        <input type="password" name="current_password"
+                        <input type="password" name="current_password" autocomplete="current-password"
                             class="form-control pass-field bg-dark text-white border-secondary" required>
                         <span class="toggle-eye" onclick="togglePassword(this)"><i class="fa fa-eye"></i></span>
                     </div>
                     <div class="mb-3 position-relative">
                         <label class="fw-bold text-warning">New Password</label>
-                        <input type="password" name="password"
+                        <input type="password" name="password" autocomplete="new-password"
                             class="form-control pass-field bg-dark text-white border-secondary" required>
                         <span class="toggle-eye" onclick="togglePassword(this)"><i class="fa fa-eye"></i></span>
                     </div>
                     <div class="mb-3 position-relative">
                         <label class="fw-bold text-warning">Confirm Password</label>
-                        <input type="password" name="password_confirmation"
+                        <input type="password" name="password_confirmation" autocomplete="new-password"
                             class="form-control pass-field bg-dark text-white border-secondary" required>
                         <span class="toggle-eye" onclick="togglePassword(this)"><i class="fa fa-eye"></i></span>
                     </div>

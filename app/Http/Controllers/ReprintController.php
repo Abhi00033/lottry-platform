@@ -11,47 +11,41 @@ class ReprintController extends Controller
     /**
      * Reprint Home
      */
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
+        $query = BetTicket::with('user');
 
-        // Admin
-        if ($user->role_id == 1) {
-
-            $tickets = BetTicket::with('user')
-                ->whereDate('draw_date', today())
-                ->latest('id')
-                ->paginate(20);
-
-            return view('lottry_pages.reprint.index', [
-                'tickets' => $tickets,
-                'isAdmin' => true
-            ]);
+        // Role-based filtering: Admins see everything, Agents/Retailers only see their own
+        if ($user->role_id != 1) {
+            $query->where('user_id', $user->id);
         }
 
-        // Retailer
-        $tickets = BetTicket::with('user')
-            ->where('user_id', $user->id)
-            ->latest('created_at')
-            ->take(5)
-            ->get();
+        // Default or requested date filter (ensures only current/selected date data shows, no old bleeding)
+        $selectedDate = $request->input('draw_date', today()->toDateString());
+        $query->whereDate('draw_date', $selectedDate);
+
+        // If Admin is viewing index without pagination bloat, paginate nicely
+        $tickets = $query->latest('id')->paginate(20)->appends($request->all());
 
         return view('lottry_pages.reprint.index', [
             'tickets' => $tickets,
-            'isAdmin' => false
+            'isAdmin' => ($user->role_id == 1)
         ]);
     }
 
     /**
-     * Admin Search
+     * Search & Filter
      */
     public function search(Request $request)
     {
         $user = Auth::user();
-
-        abort_if($user->role_id != 1, 403);
-
         $query = BetTicket::with('user');
+
+        // Role restriction: Non-admins can only search within their own tickets
+        if ($user->role_id != 1) {
+            $query->where('user_id', $user->id);
+        }
 
         if ($request->filled('ticket_no')) {
             $query->where('ticket_no', 'like', '%' . $request->ticket_no . '%');
@@ -62,26 +56,20 @@ class ReprintController extends Controller
         }
 
         if ($request->filled('mobile')) {
-
             $query->whereHas('user', function ($q) use ($request) {
                 $q->where('mobile', 'like', '%' . $request->mobile . '%');
             });
         }
 
         if ($request->filled('username')) {
-
             $query->whereHas('user', function ($q) use ($request) {
                 $q->where('username', 'like', '%' . $request->username . '%');
             });
         }
 
-        if ($request->filled('draw_date')) {
-            $query->whereDate('draw_date', $request->draw_date);
-        }
-
-        if (!$request->filled('draw_date')) {
-            $query->whereDate('draw_date', today());
-        }
+        // Handle Date filtering properly: Default to today if blank, else use requested date
+        $drawDate = $request->filled('draw_date') ? $request->draw_date : today()->toDateString();
+        $query->whereDate('draw_date', $drawDate);
 
         $tickets = $query
             ->latest('id')
@@ -90,20 +78,19 @@ class ReprintController extends Controller
 
         return view('lottry_pages.reprint.index', [
             'tickets' => $tickets,
-            'isAdmin' => true
+            'isAdmin' => ($user->role_id == 1)
         ]);
     }
 
     /**
-     * Reprint Ticket
+     * Reprint Ticket Print
      */
     public function print(BetTicket $ticket)
     {
         $user = Auth::user();
 
-        // Retailer can print only his own tickets
+        // Non-admin users can print only their own tickets
         if ($user->role_id != 1) {
-
             abort_if(
                 $ticket->user_id != $user->id,
                 403,
