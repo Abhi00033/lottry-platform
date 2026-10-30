@@ -27,16 +27,35 @@ class PasswordController extends Controller
     //     return back()->with('status', 'password-updated');
     // }
 
+    // public function update(Request $request): RedirectResponse
+    // {
+    //     // Use standard validation instead of validateWithBag so we can catch and display errors easily
+    //     $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
+    //         'current_password' => ['required', 'current_password'],
+    //         'password' => ['required', Password::defaults(), 'confirmed'],
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return back()->with('error', $validator->errors()->first());
+    //     }
+
+    //     $request->user()->update([
+    //         'password' => Hash::make($request->password),
+    //     ]);
+
+    //     return back()->with('status', 'password-updated');
+    // }
+
+
     public function update(Request $request): RedirectResponse
     {
-        // Use standard validation instead of validateWithBag so we can catch and display errors easily
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'current_password' => ['required', 'current_password'],
-            'password' => ['required', Password::defaults(), 'confirmed'],
+            'password' => ['required', 'string', 'min:6', 'max:6', 'confirmed'],
         ]);
 
         if ($validator->fails()) {
-            return back()->with('error', $validator->errors()->first());
+            return back()->withErrors($validator)->withInput();
         }
 
         $request->user()->update([
@@ -45,4 +64,6 @@ class PasswordController extends Controller
 
         return back()->with('status', 'password-updated');
     }
+
+    
 }

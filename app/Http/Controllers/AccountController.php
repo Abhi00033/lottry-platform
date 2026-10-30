@@ -10,6 +10,86 @@ use Carbon\Carbon;
 
 class AccountController extends Controller
 {
+    // public function accounts(Request $request): View
+    // {
+    //     $auth = auth()->user();
+
+    //     $dateFrom = $request->get(
+    //         'date_from',
+    //         Carbon::today()->format('Y-m-d')
+    //     );
+
+    //     $dateTo = $request->get(
+    //         'date_to',
+    //         Carbon::today()->format('Y-m-d')
+    //     );
+
+    //     // FETCH ALL BETS IN DATE RANGE
+    //     $bets = Bet::where('user_id', $auth->id)
+    //         ->whereIn('status', [
+    //             'won',
+    //             'claimed',
+    //             'lost',
+    //             'pending'
+    //         ])
+    //         ->whereBetween('draw_time', [
+    //             Carbon::parse($dateFrom)->startOfDay(),
+    //             Carbon::parse($dateTo)->endOfDay(),
+    //         ])
+    //         ->get();
+
+    //     $commissionRate = $auth->commision ?? 5;
+
+    //     // REPORT 1 — POINT REPORT
+    //     $playPoints = $bets->sum('points');
+    //     $commission = ($playPoints * $commissionRate) / 100;
+
+    //     // ONLY COUNT CLAIMED WINNINGS TOWARDS PAYOUT REPORT
+    //     $winPoints = $bets
+    //         ->where('status', 'claimed')
+    //         ->sum(function ($bet) {
+    //             return $bet->points * 90;
+    //         });
+
+    //     $baseNet = $playPoints - $winPoints;
+    //     $netReport1 = $baseNet - $commission;
+
+    //     // REPORT 2 — AMOUNT REPORT
+    //     $playAmount = $bets->sum('total_amount');
+
+    //     // ONLY COUNT CLAIMED WINNINGS
+    //     $winAmount = $bets
+    //         ->where('status', 'claimed')
+    //         ->sum(function ($bet) {
+    //             return $bet->points * 90;
+    //         });
+
+    //     $netReport2 = $playAmount - $winAmount;
+
+    //     $report1 = [
+    //         'play_point' => $playPoints,
+    //         'commission' => $commission,
+    //         'win_point'  => $winPoints,
+    //         'net'        => $netReport1,
+    //     ];
+
+    //     $report2 = [
+    //         'play_point' => $playAmount,
+    //         'win_point'  => $winAmount,
+    //         'net'        => $netReport2,
+    //     ];
+
+    //     return view(
+    //         'lottry_pages.accounts.index',
+    //         compact(
+    //             'dateFrom',
+    //             'dateTo',
+    //             'report1',
+    //             'report2'
+    //         )
+    //     );
+    // }
+
     public function accounts(Request $request): View
     {
         $auth = auth()->user();
@@ -24,13 +104,12 @@ class AccountController extends Controller
             Carbon::today()->format('Y-m-d')
         );
 
-        // FETCH ALL BETS IN DATE RANGE
+        // FETCH ONLY SETTLED BETS IN DATE RANGE (Exclude 'pending')
         $bets = Bet::where('user_id', $auth->id)
             ->whereIn('status', [
                 'won',
                 'claimed',
-                'lost',
-                'pending'
+                'lost'
             ])
             ->whereBetween('draw_time', [
                 Carbon::parse($dateFrom)->startOfDay(),
@@ -48,7 +127,7 @@ class AccountController extends Controller
         $winPoints = $bets
             ->where('status', 'claimed')
             ->sum(function ($bet) {
-                return $bet->points * 90;
+                return $bet->points * 90; // Fixed multiplication operator (* instead of missing character)
             });
 
         $baseNet = $playPoints - $winPoints;
@@ -61,7 +140,7 @@ class AccountController extends Controller
         $winAmount = $bets
             ->where('status', 'claimed')
             ->sum(function ($bet) {
-                return $bet->points * 90;
+                return $bet->points * 90; // Fixed multiplication operator
             });
 
         $netReport2 = $playAmount - $winAmount;

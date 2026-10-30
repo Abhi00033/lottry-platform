@@ -17,9 +17,31 @@ use Carbon\Carbon;
 class GenerateDrawResults extends Command implements Isolatable
 {
     protected $signature   = 'draw:generate-results';
-    protected $description = 'Automate 15-min draw results with catch-up logic and guaranteed profit control';
+    protected $description = 'Automate 15-min draw results with catch-up logic and balanced, fair profit control';
 
     const DEFAULT_COMMISSION = 0;
+
+    // ======================= TUNABLE SETTINGS =======================
+    const PAYOUT_MULT        = 90;     // win = points x 90
+    const TARGET_MARGIN      = 0.10;   // house aims to keep ~10% of a slot's collection
+    const HIT_RATE           = 0.80;   // chance a bet number wins when an affordable one exists
+    const HIT_RATE_BOOST     = 0.90;   // hit rate when the day has a healthy surplus
+    const BIG_WIN_CHANCE     = 0.25;   // chance to pick from the bigger-payout half
+    const BLOCK_LAST_N       = 3;      // don't repeat the last N result suffixes
+
+    // Carry from previous slots (clamped, never unlimited)
+    const CARRY_MAX          = 0.30;   // surplus can add up to 30% of the slot collection
+    const DEBT_RECOVERY      = 0.15;   // a past loss reduces the slot budget by up to 15%
+
+    // Per-draw safety
+    const DRAW_CAP           = 1.3;    // one sub-series pays at most 130% of its own collection
+
+    // Rare "loss slot" (decided ONCE per slot)
+    const LOSS_SLOT_CHANCE   = 0.04;   // ~1 slot in 25
+    const MIN_DAY_HEALTH     = 0.05;   // allowed only if the day's house share so far >= 5%
+    const LOSS_ALLOWANCE_PCT = 0.10;   // allowance = 10% of the slot collection ...
+    const MAX_LOSS_ALLOWANCE = 2000;   // ... but never more than this many points
+    // ================================================================
 
     public function handle()
     {
@@ -92,7 +114,7 @@ class GenerateDrawResults extends Command implements Isolatable
     {
         DB::transaction(function () use ($mainSeries, $subSeriesStart, $drawTime) {
 
-            // STEP 1 — FETCH ALL PENDING BETS
+            // STEP 1 — FETCH ALL PENDING BETS (unchanged)
             $bets = Bet::where('series_id', $mainSeries->id)
                 ->where('draw_time', $drawTime)
                 ->where('status', 'pending')
@@ -101,25 +123,18 @@ class GenerateDrawResults extends Command implements Isolatable
                 ->lockForUpdate()
                 ->get();
 
+            $blockedSuffixes = $this->getBlockedSuffixes($subSeriesStart, $drawTime);
+
             // ---------------------------------------------------------------------
-            // SCENARIO A: NO BETS PLACED ANYWHERE IN THIS SUB-SERIES
+            // SCENARIO A: NO BETS PLACED IN THIS SUB-SERIES -> random number
             // ---------------------------------------------------------------------
             if ($bets->isEmpty()) {
-                // Fetch blocked suffixes relative to drawTime
-                $blockedSuffixes = Result::where('series', $subSeriesStart)
-                    ->where('draw_time', '<', $drawTime)
-                    ->orderByDesc('draw_time')
-                    ->take(5)
-                    ->pluck('result_number')
-                    ->map(fn($n) => $n % 100)
-                    ->unique()
-                    ->toArray();
+                $allowed = array_values(array_diff(range(0, 99), $blockedSuffixes));
+                if (empty($allowed)) {
+                    $allowed = range(0, 99);
+                }
 
-                do {
-                    $randomSuffix = rand(0, 99);
-                } while (in_array($randomSuffix, $blockedSuffixes) && count($blockedSuffixes) < 100);
-
-                $randomNumber = $subSeriesStart + $randomSuffix;
+                $randomNumber = $subSeriesStart + $allowed[array_rand($allowed)];
 
                 Result::create([
                     'draw_time'     => $drawTime,
@@ -132,116 +147,122 @@ class GenerateDrawResults extends Command implements Isolatable
             }
 
             // ---------------------------------------------------------------------
-            // SCENARIO B: BETS EXIST — CALCULATE PAYOUT SCENARIOS
+            // SCENARIO B: BETS EXIST
             // ---------------------------------------------------------------------
 
-            // STEP 2 — TOTAL COLLECTION
-            $totalCollection = $bets->sum('points');
-
-            // STEP 3 — CALCULATE PAYOUT PER NUMBER (points × 90)
-            $payoutScenarios = [];
-            for ($n = 0; $n <= 99; $n++) {
-                $fullNumber = $subSeriesStart + $n;
-                $betsOnNumber = $bets->where('number', (string) $fullNumber);
-                $totalBetPoints = $betsOnNumber->sum('points');
-
-                $payoutScenarios[$fullNumber] = [
-                    'points' => $totalBetPoints,
-                    'payout' => $totalBetPoints * 90,
-                ];
+            // STEP 2 — POINTS PER NUMBER + COLLECTION OF THIS SUB-SERIES
+            $pointsByNumber = [];
+            foreach ($bets as $bet) {
+                $n = (int) $bet->number;
+                $pointsByNumber[$n] = ($pointsByNumber[$n] ?? 0) + $bet->points;
             }
+            $totalCollection = array_sum($pointsByNumber);
 
-            // STEP 4 — FETCH RECENT DRAW SUFFIXES (Relative to target $drawTime)
-            $blockedSuffixes = Result::where('series', $subSeriesStart)
-                ->where('draw_time', '<', $drawTime)
-                ->orderByDesc('draw_time')
-                ->take(5)
-                ->pluck('result_number')
-                ->map(fn($n) => $n % 100)
-                ->unique()
-                ->toArray();
+            // STEP 3 — SLOT BUDGET
+            $prev = $this->getPoolStats($drawTime);   // settled bets of PREVIOUS slots today
+            $slot = $this->getSlotStats($drawTime);   // this slot, all series (pending+won+lost)
 
-            // STEP 5 — CATEGORIZE ALL 100 NUMBERS
-            $idealWinners      = collect(); // Players win AND House Profit >= 20%
-            $acceptableWinners = collect(); // Players win AND House Profit >= 0% (No house loss)
-            $zeroBetNumbers    = collect(); // Numbers with 0 bets placed
-            $lossCandidates    = collect(); // House loses money (Payout > Collection)
+            // Carry from earlier slots today (surplus or debt), clamped
+            $prevSurplus = ($prev['collection'] * (1 - self::TARGET_MARGIN)) - $prev['paid'];
+            $carry = max(
+                -$slot['collection'] * self::DEBT_RECOVERY,
+                min($prevSurplus, $slot['collection'] * self::CARRY_MAX)
+            );
 
-            foreach ($payoutScenarios as $number => $data) {
-                $suffix = $number % 100;
+            // Day health so far (before this slot)
+            $dayHealth = $prev['collection'] > 0
+                ? ($prev['collection'] - $prev['paid']) / $prev['collection']
+                : 1;
 
-                // Filter out recently drawn suffixes
-                if (in_array($suffix, $blockedSuffixes)) {
+            // Rare loss slot: decided once per slot, only when the day is healthy
+            $lossSlot  = $this->isLossSlot($drawTime) && $dayHealth >= self::MIN_DAY_HEALTH;
+            $allowance = $lossSlot
+                ? min(self::MAX_LOSS_ALLOWANCE, $slot['collection'] * self::LOSS_ALLOWANCE_PCT)
+                : 0;
+
+            $slotBudget = ($slot['collection'] * (1 - self::TARGET_MARGIN)) + $carry + $allowance;
+
+            // Reserve the unavoidable minimum payouts of the OTHER pending sub-series
+            // (those where every number has a bet, so the house cannot pick an unbet number)
+            $reserve = $this->getReserve($drawTime, $subSeriesStart);
+
+            $budget = $slotBudget - $slot['paid'] - $reserve;
+
+            // Per-draw cap
+            $budget = min($budget, $totalCollection * self::DRAW_CAP);
+            $budget = max(0, $budget);
+
+            // STEP 4 — CLASSIFY ALL 100 NUMBERS
+            $affordable  = [];   // number => payout
+            $zeroBet     = [];   // numbers nobody bet on
+            $cheapestBet = null; // last-resort fallback (ignores block list)
+
+            for ($n = 0; $n <= 99; $n++) {
+                $full      = $subSeriesStart + $n;
+                $points    = $pointsByNumber[$full] ?? 0;
+                $isBlocked = in_array($n, $blockedSuffixes, true);
+
+                if ($points <= 0) {
+                    if (!$isBlocked) {
+                        $zeroBet[] = $full;
+                    }
                     continue;
                 }
 
-                $houseProfit = $totalCollection - $data['payout'];
+                $payout = $points * self::PAYOUT_MULT;
 
-                $candidate = [
-                    'number'       => $number,
-                    'points'       => $data['points'],
-                    'payout'       => $data['payout'],
-                    'house_profit' => $houseProfit,
-                ];
+                if ($cheapestBet === null || $payout < $cheapestBet['payout']) {
+                    $cheapestBet = ['number' => $full, 'payout' => $payout];
+                }
 
-                if ($data['points'] > 0) {
-                    if ($houseProfit >= ($totalCollection * 0.20)) {
-                        $idealWinners->push($candidate);
-                    } elseif ($houseProfit >= 0) {
-                        $acceptableWinners->push($candidate);
-                    } else {
-                        $lossCandidates->push($candidate);
-                    }
-                } else {
-                    $zeroBetNumbers->push($candidate);
+                if (!$isBlocked && $payout <= $budget) {
+                    $affordable[$full] = $payout;
                 }
             }
 
-            // FALLBACK: If anti-repeat filter blocked all numbers, re-evaluate without filter
-            if ($idealWinners->isEmpty() && $acceptableWinners->isEmpty() && $zeroBetNumbers->isEmpty()) {
-                foreach ($payoutScenarios as $number => $data) {
-                    $houseProfit = $totalCollection - $data['payout'];
-                    $candidate = [
-                        'number'       => $number,
-                        'points'       => $data['points'],
-                        'payout'       => $data['payout'],
-                        'house_profit' => $houseProfit,
-                    ];
+            // STEP 5 — CHOOSE WINNER
+            $hitRate = ($carry >= $slot['collection'] * self::CARRY_MAX)
+                ? self::HIT_RATE_BOOST
+                : self::HIT_RATE;
 
-                    if ($data['points'] > 0) {
-                        if ($houseProfit >= 0) {
-                            $acceptableWinners->push($candidate);
-                        } else {
-                            $lossCandidates->push($candidate);
-                        }
-                    } else {
-                        $zeroBetNumbers->push($candidate);
-                    }
-                }
-            }
+            $playerWins = !empty($affordable) && $this->chance($hitRate);
 
-            // ---------------------------------------------------------------------
-            // STEP 6 — SMART WINNER SELECTION HIERARCHY
-            // ---------------------------------------------------------------------
-            if ($idealWinners->isNotEmpty()) {
-                $winningNumber = $idealWinners->random()['number'];
-            } elseif ($acceptableWinners->isNotEmpty()) {
-                // Guarantees player wins when whole range is covered (Profit >= 0)
-                $winningNumber = $acceptableWinners->random()['number'];
-            } elseif ($zeroBetNumbers->isNotEmpty()) {
-                $winningNumber = $zeroBetNumbers->random()['number'];
+            if ($playerWins) {
+                $winningNumber = $this->pickWinner($affordable);
+                $mode = 'PLAYER WIN';
+            } elseif (!empty($zeroBet)) {
+                $winningNumber = $zeroBet[array_rand($zeroBet)];
+                $mode = 'HOUSE KEEPS (zero-bet number)';
+            } elseif (!empty($affordable)) {
+                $winningNumber = $this->pickWinner($affordable);
+                $mode = 'PLAYER WIN (no zero-bet number left)';
             } else {
-                $winningNumber = $lossCandidates->sortBy('payout')->first()['number'];
+                // Every number has bets and none is affordable -> smallest possible payout
+                $winningNumber = $cheapestBet['number'];
+                $mode = 'FORCED CHEAPEST';
             }
 
-            // STEP 7 — SAVE RESULT
+            $this->info(sprintf(
+                "Series %d | collect=%s slotBudget=%s paid=%s reserve=%s budget=%s%s | %s -> %d",
+                $subSeriesStart,
+                $totalCollection,
+                round($slotBudget),
+                round($slot['paid']),
+                round($reserve),
+                round($budget),
+                $lossSlot ? ' [LOSS SLOT]' : '',
+                $mode,
+                $winningNumber
+            ));
+
+            // STEP 6 — SAVE RESULT (unchanged)
             Result::create([
                 'draw_time'     => $drawTime,
                 'series'        => $subSeriesStart,
                 'result_number' => $winningNumber,
             ]);
 
-            // STEP 8 — PROCESS WINNERS & LOSERS (ONLY UPDATE TICKET CLAIM AMOUNT, NOT USER BALANCE)
+            // STEP 7 — PROCESS WINNERS & LOSERS (unchanged: only BetTicket claim_amount, not wallet)
             foreach ($bets as $bet) {
                 if ($bet->status !== 'pending') {
                     continue;
@@ -254,7 +275,7 @@ class GenerateDrawResults extends Command implements Isolatable
                         continue;
                     }
 
-                    $winAmount = $bet->points * 90;
+                    $winAmount = $bet->points * self::PAYOUT_MULT;
 
                     $bet->update(['status' => 'won']);
 
@@ -269,6 +290,116 @@ class GenerateDrawResults extends Command implements Isolatable
                 }
             }
         });
+    }
+
+    /**
+     * Pick a winner from affordable numbers.
+     * Mostly random, sometimes from the bigger-payout half so players see real wins.
+     */
+    private function pickWinner(array $affordable): int
+    {
+        arsort($affordable); // biggest payout first
+        $numbers = array_keys($affordable);
+
+        if (count($numbers) > 1 && $this->chance(self::BIG_WIN_CHANCE)) {
+            $top = array_slice($numbers, 0, (int) ceil(count($numbers) / 2));
+            return (int) $top[array_rand($top)];
+        }
+
+        return (int) $numbers[array_rand($numbers)];
+    }
+
+    /**
+     * Settled totals of PREVIOUS slots today (all series).
+     */
+    private function getPoolStats(Carbon $drawTime): array
+    {
+        $dayStart = $drawTime->copy()->startOfDay();
+
+        $row = Bet::whereIn('status', ['won', 'lost'])
+            ->where('draw_time', '>=', $dayStart)
+            ->where('draw_time', '<', $drawTime)
+            ->selectRaw("COALESCE(SUM(points), 0) as collection,
+                         COALESCE(SUM(CASE WHEN status = 'won' THEN points ELSE 0 END), 0) as won_points")
+            ->first();
+
+        return [
+            'collection' => (float) ($row->collection ?? 0),
+            'paid'       => (float) ($row->won_points ?? 0) * self::PAYOUT_MULT,
+        ];
+    }
+
+    /**
+     * Totals for THIS slot across all series:
+     * collection = pending + won + lost, paid = wins already decided in this slot.
+     */
+    private function getSlotStats(Carbon $drawTime): array
+    {
+        $row = Bet::whereIn('status', ['pending', 'won', 'lost'])
+            ->where('draw_time', $drawTime)
+            ->selectRaw("COALESCE(SUM(points), 0) as collection,
+                         COALESCE(SUM(CASE WHEN status = 'won' THEN points ELSE 0 END), 0) as won_points")
+            ->first();
+
+        return [
+            'collection' => (float) ($row->collection ?? 0),
+            'paid'       => (float) ($row->won_points ?? 0) * self::PAYOUT_MULT,
+        ];
+    }
+
+    /**
+     * Minimum payout that the OTHER still-pending sub-series of this slot will
+     * be forced to pay (only sub-series where all 100 numbers have a bet).
+     */
+    private function getReserve(Carbon $drawTime, int $excludeGroup): float
+    {
+        $rows = Bet::where('draw_time', $drawTime)
+            ->where('status', 'pending')
+            ->where('series_group', '!=', $excludeGroup)
+            ->selectRaw('series_group, number, SUM(points) as pts')
+            ->groupBy('series_group', 'number')
+            ->get();
+
+        $groups = [];
+        foreach ($rows as $r) {
+            $groups[$r->series_group][(int) $r->number] = (float) $r->pts;
+        }
+
+        $reserve = 0;
+        foreach ($groups as $numbers) {
+            if (count($numbers) >= 100) {
+                $reserve += min($numbers) * self::PAYOUT_MULT;
+            }
+        }
+
+        return $reserve;
+    }
+
+    /** One decision per slot (same answer for every sub-series, stable across catch-up runs). */
+    private function isLossSlot(Carbon $drawTime): bool
+    {
+        $hash = crc32('lossslot-' . $drawTime->format('Y-m-d H:i'));
+        return ($hash % 1000) < (self::LOSS_SLOT_CHANCE * 1000);
+    }
+
+    /** Last N result suffixes for this sub-series (anti-repeat). */
+    private function getBlockedSuffixes($subSeriesStart, $drawTime): array
+    {
+        return Result::where('series', $subSeriesStart)
+            ->where('draw_time', '<', $drawTime)
+            ->orderByDesc('draw_time')
+            ->take(self::BLOCK_LAST_N)
+            ->pluck('result_number')
+            ->map(fn($n) => $n % 100)
+            ->unique()
+            ->values()
+            ->toArray();
+    }
+
+    /** true with the given probability (0.0 - 1.0) */
+    private function chance(float $probability): bool
+    {
+        return (mt_rand() / mt_getrandmax()) < $probability;
     }
 
     private function getCommissionRate($user): float

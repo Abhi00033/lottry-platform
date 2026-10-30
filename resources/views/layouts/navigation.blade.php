@@ -23,8 +23,6 @@
     }
 
     .logo-side img {
-        /* width: 195px;
-        height: 136px; */
         width: 195px;
         height: 136px;
     }
@@ -55,50 +53,6 @@
         border-right: 2px solid #c78600;
     }
 
-    /* .slot-box {
-        width: 260px;
-        min-width: 260px;
-        background: linear-gradient(135deg, #8a2be2, #b84dff);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: #fff;
-        font-size: 1.1rem;
-        font-weight: 900;
-        border-right: 2px solid #c78600;
-    } */
-
-    /* .menu-strip {
-        background: var(--gold);
-        min-height: 52px;
-        padding: 4px;
-    } */
-
-    /* .menu-strip {
-        background: var(--gold);
-        height: 40px;
-        padding: 0 6px;
-
-        display: flex;
-        align-items: flex-start;
-
-        overflow: hidden;
-    } */
-
-    /* .top-nav-btn {
-        background: linear-gradient(to bottom, #ffe16a, #ffc400);
-        color: #000;
-        border: 1px solid #8f6200;
-        border-radius: 2px;
-        padding: 3px 14px;
-        font-size: .85rem;
-        font-weight: 700;
-        text-decoration: none;
-        min-width: 105px;
-        text-align: center;
-        line-height: 24px;
-    } */
-
     .menu-strip {
         background: var(--gold);
 
@@ -115,34 +69,6 @@
 
         margin: 0;
     }
-
-    /*
-    .top-nav-btn {
-        background: linear-gradient(to bottom, #ffe16a, #ffc400);
-        color: #000;
-        border: 1px solid #8f6200;
-        border-radius: 2px;
-
-        height: 32px;
-        line-height: 30px;
-
-        padding: 0 14px;
-
-        font-size: .85rem;
-        font-weight: 700;
-
-        min-width: 105px;
-
-        text-align: center;
-        text-decoration: none;
-
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-
-        margin-top: 0;
-        margin-bottom: 0;
-    } */
 
     .top-nav-btn {
         background: linear-gradient(to bottom, #ffe16a, #ffc400);
@@ -494,7 +420,7 @@
                 @method('PUT')
                 <div class="modal-body">
 
-                    <!-- Display general validation error if any -->
+                    <!-- Display validation errors directly inside the modal -->
                     @if ($errors->any())
                         <div class="alert alert-danger py-2 mb-3 text-xs" style="font-size: 0.85rem;">
                             <ul class="mb-0 ps-3">
@@ -514,13 +440,15 @@
                     <div class="mb-3 position-relative">
                         <label class="fw-bold text-warning">New Password</label>
                         <input type="password" name="password" autocomplete="new-password"
-                            class="form-control pass-field bg-dark text-white border-secondary" required>
+                            class="form-control pass-field bg-dark text-white border-secondary" maxlength="6"
+                            minlength="6" pattern=".{6,6}" title="Password must be exactly 6 characters" required>
                         <span class="toggle-eye" onclick="togglePassword(this)"><i class="fa fa-eye"></i></span>
                     </div>
                     <div class="mb-3 position-relative">
                         <label class="fw-bold text-warning">Confirm Password</label>
                         <input type="password" name="password_confirmation" autocomplete="new-password"
-                            class="form-control pass-field bg-dark text-white border-secondary" required>
+                            class="form-control pass-field bg-dark text-white border-secondary" maxlength="6"
+                            minlength="6" pattern=".{6,6}" title="Password must be exactly 6 characters" required>
                         <span class="toggle-eye" onclick="togglePassword(this)"><i class="fa fa-eye"></i></span>
                     </div>
                 </div>
@@ -623,4 +551,13 @@
     }
 
     updateTopResults();
+
+    // Automatically keep/re-open the password modal if validation errors exist on return
+
+    @if ($errors->any())
+        document.addEventListener("DOMContentLoaded", function() {
+            var passwordModal = new bootstrap.Modal(document.getElementById('passwordModal'));
+            passwordModal.show();
+        });
+    @endif
 </script>
